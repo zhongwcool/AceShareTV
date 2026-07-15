@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.AceShare" parent="Theme.AppCompat.DayNight.NoActionBar" />
+</resources>

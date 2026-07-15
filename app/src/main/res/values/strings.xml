@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">AceShare TV</string>
+    <string name="discovery_searching">正在查找局域网中的 AceShare…</string>
+    <string name="discovery_hint">请确认电脑已运行 AceShare，且与电视同一 Wi‑Fi</string>
+    <string name="discovery_retry">重试搜索</string>
+    <string name="discovery_enter">进入</string>
+    <string name="discovery_title">选择 AceShare 服务器</string>
+    <string name="browse_source">当前源</string>
+    <string name="browse_switch_source">切换源</string>
+    <string name="browse_tab_lines">短文本</string>
+    <string name="browse_tab_texts">长文本</string>
+    <string name="browse_tab_files">文件</string>
+    <string name="browse_empty_lines">暂无短文本</string>
+    <string name="browse_empty_texts">暂无长文本</string>
+    <string name="browse_empty_files">暂无文件</string>
+    <string name="browse_retry">重试</string>
+    <string name="browse_error">无法连接服务器</string>
+    <string name="browse_loading">加载中…</string>
+    <string name="copied_format">已复制：%1$s</string>
+    <string name="copy_full_text">复制全文</string>
+    <string name="download_title">下载文件</string>
+    <string name="download_message">可在手机或电脑打开同地址下载：\n%1$s</string>
+    <string name="download_start">开始下载</string>
+    <string name="download_started">已开始下载</string>
+    <string name="download_dismiss">关闭</string>
+    <string name="exit_confirm_title">退出 AceShare TV？</string>
+    <string name="exit_confirm_yes">退出</string>
+    <string name="exit_confirm_no">取消</string>
+    <string name="text_detail_title">文本详情</string>
+</resources>
