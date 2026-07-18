@@ -18,9 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -49,7 +46,6 @@ fun DiscoveryScreen(
     onExitRequest: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var showExitConfirm by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         viewModel.onStart()
@@ -63,11 +59,7 @@ fun DiscoveryScreen(
     }
 
     BackHandler {
-        if (showExitConfirm) {
-            showExitConfirm = false
-        } else {
-            showExitConfirm = true
-        }
+        onExitRequest()
     }
 
     Box(
@@ -85,13 +77,6 @@ fun DiscoveryScreen(
                 servers = state.servers,
                 onSelect = { viewModel.selectServer(it) },
                 rootModifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        if (showExitConfirm) {
-            ExitConfirmDialog(
-                onConfirm = onExitRequest,
-                onDismiss = { showExitConfirm = false },
             )
         }
     }
@@ -163,42 +148,6 @@ private fun ServerListContent(
                     rootModifier = Modifier.fillMaxWidth(0.7f),
                 )
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun ExitConfirmDialog(
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(TvBackground.copy(alpha = 0.85f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            Modifier.padding(48.dp),
-            Arrangement.Center,
-            Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = stringResource(R.string.exit_confirm_title),
-                color = TvTextPrimary,
-                fontSize = 32.sp,
-            )
-            Spacer(Modifier.height(32.dp))
-            FocusableButton(
-                label = stringResource(R.string.exit_confirm_yes),
-                onClick = onConfirm,
-            )
-            Spacer(Modifier.height(16.dp))
-            FocusableButton(
-                label = stringResource(R.string.exit_confirm_no),
-                onClick = onDismiss,
-            )
         }
     }
 }

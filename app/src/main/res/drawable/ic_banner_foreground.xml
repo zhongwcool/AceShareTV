@@ -5,7 +5,7 @@
     android:viewportHeight="64">
   <group android:scaleX="0.6666667"
       android:scaleY="0.6666667"
-      android:translateX="10.666667"
+      android:translateX="12.666667"
       android:translateY="10.666667">
     <group android:scaleX="0.5625"
         android:translateX="-3.28">
@@ -75,10 +75,10 @@
           android:fillAlpha="0.09"/>
     </group>
 
-    <group android:scaleX="0.492"
-        android:scaleY="0.2051233"
-        android:translateX="266"
-        android:translateY="61.98175">
+    <group android:scaleX="0.0653"
+        android:scaleY="0.1161"
+        android:translateX="12.67"
+        android:translateY="45.02">
       <group android:translateY="125.71875">
         <path android:pathData="M75.734375,-0L53.578125,-0L50,-15.6875L27.5,-15.6875L23.765625,-0L2.046875,-0L26.9375,-93.875L50.84375,-93.875L75.734375,-0ZM45.921875,-32.5625Q41.140625,-53.515625,38.75,-72.421875L38.46875,-72.421875Q35.9375,-52.953125,31.359375,-32.5625L45.921875,-32.5625Z"
             android:fillColor="#000000"/>

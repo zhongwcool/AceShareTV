@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.NonInteractiveSurfaceDefaults
 import androidx.tv.material3.Surface
+import androidx.tv.material3.SurfaceDefaults
 import com.alex.aceshare.ui.navigation.AceShareNavHost
 import com.alex.aceshare.ui.theme.AceShareTheme
 import com.alex.aceshare.ui.theme.TvBackground
@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     shape = RectangleShape,
-                    colors = NonInteractiveSurfaceDefaults.colors(
+                    colors = SurfaceDefaults.colors(
                         containerColor = TvBackground,
                     ),
                 ) {
