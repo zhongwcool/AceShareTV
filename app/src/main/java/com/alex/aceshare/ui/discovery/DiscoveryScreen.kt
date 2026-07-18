@@ -32,7 +32,6 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.alex.aceshare.R
 import com.alex.aceshare.data.DiscoveredServer
-import com.alex.aceshare.ui.components.FocusableButton
 import com.alex.aceshare.ui.components.ServerCard
 import com.alex.aceshare.ui.theme.TvBackground
 import com.alex.aceshare.ui.theme.TvTextPrimary
@@ -69,7 +68,6 @@ fun DiscoveryScreen(
     ) {
         if (state.servers.isEmpty()) {
             SearchingContent(
-                onRetry = { viewModel.retry() },
                 rootModifier = Modifier.fillMaxSize(),
             )
         } else {
@@ -85,7 +83,6 @@ fun DiscoveryScreen(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun SearchingContent(
-    onRetry: () -> Unit,
     rootModifier: Modifier = Modifier,
 ) {
     val composition by rememberLottieComposition(
@@ -112,11 +109,6 @@ private fun SearchingContent(
             text = stringResource(R.string.discovery_hint),
             color = TvTextSecondary,
             fontSize = 20.sp,
-        )
-        Spacer(Modifier.height(32.dp))
-        FocusableButton(
-            label = stringResource(R.string.discovery_retry),
-            onClick = onRetry,
         )
     }
 }

@@ -78,12 +78,6 @@ class DiscoveryViewModel(
         discovery.stop()
     }
 
-    fun retry() {
-        lastAutoEnteredKey = null
-        _searching.value = true
-        discovery.restart()
-    }
-
     fun selectServer(server: DiscoveredServer) {
         viewModelScope.launch {
             preferences.saveServer(server)

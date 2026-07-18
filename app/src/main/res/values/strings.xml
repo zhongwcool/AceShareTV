@@ -1,8 +1,7 @@
 <resources>
     <string name="app_name">AceShare TV</string>
-    <string name="discovery_searching">正在查找局域网中的 AceShare…</string>
+    <string name="discovery_searching">正在查找局域网中的 AceShare 服务器</string>
     <string name="discovery_hint">请确认电脑已运行 AceShare，且与电视同一 Wi‑Fi</string>
-    <string name="discovery_retry">重试搜索</string>
     <string name="discovery_enter">进入</string>
     <string name="discovery_title">选择 AceShare 服务器</string>
     <string name="browse_source">当前源</string>
