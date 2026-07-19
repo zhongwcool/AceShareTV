@@ -1,3 +1,16 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.jdt.ls.java.home": "C:\\Users\\zhong\\AppData\\Local\\Programs\\Android Studio\\jbr",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-21",
+            "path": "C:\\Users\\zhong\\AppData\\Local\\Programs\\Android Studio\\jbr",
+            "default": true
+        },
+        {
+            "name": "JavaSE-23",
+            "path": "C:\\Program Files\\Java\\jdk-23"
+        }
+    ],
+    "java.import.gradle.java.home": "C:\\Users\\zhong\\AppData\\Local\\Programs\\Android Studio\\jbr"
 }
