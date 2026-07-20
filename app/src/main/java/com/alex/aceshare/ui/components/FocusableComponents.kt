@@ -1,17 +1,15 @@
 package com.alex.aceshare.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,6 +26,9 @@ import com.alex.aceshare.ui.theme.TvSurfaceFocused
 import com.alex.aceshare.ui.theme.TvTextPrimary
 import com.alex.aceshare.ui.theme.TvTextSecondary
 
+/** Extra space so focused scale + border are not clipped by LazyColumn / parents. */
+private val FocusGlowPadding = 8.dp
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun FocusableCard(
@@ -36,24 +37,28 @@ fun FocusableCard(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val cardShape = RoundedCornerShape(12.dp)
-    Surface(
-        onClick = onClick,
-        modifier = rootModifier,
-        shape = ClickableSurfaceDefaults.shape(shape = cardShape),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = TvSurface,
-            focusedContainerColor = TvSurfaceFocused,
-            pressedContainerColor = TvSurfaceFocused,
-        ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
-        border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(
-                border = BorderStroke(3.dp, TvBorderFocused),
-                shape = cardShape,
+    Box(modifier = rootModifier) {
+        Surface(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = FocusGlowPadding),
+            shape = ClickableSurfaceDefaults.shape(shape = cardShape),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = TvSurface,
+                focusedContainerColor = TvSurfaceFocused,
+                pressedContainerColor = TvSurfaceFocused,
             ),
-        ),
-        content = content,
-    )
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+            border = ClickableSurfaceDefaults.border(
+                focusedBorder = Border(
+                    border = BorderStroke(3.dp, TvBorderFocused),
+                    shape = cardShape,
+                ),
+            ),
+            content = content,
+        )
+    }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -116,7 +121,7 @@ fun ServerCard(
             if (!version.isNullOrBlank()) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "v$version",
+                    text = "v${version.trim().removePrefix("v").removePrefix("V")}",
                     color = TvTextSecondary,
                     fontSize = 18.sp,
                 )
@@ -133,28 +138,26 @@ fun LineItemCard(
     onClick: () -> Unit,
     rootModifier: Modifier = Modifier,
 ) {
-    FocusableCard(onClick = onClick, rootModifier = rootModifier.fillMaxWidth()) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    Column(rootModifier.fillMaxWidth()) {
+        if (title.isNotBlank()) {
             Text(
                 text = title,
-                modifier = Modifier.weight(0.35f),
-                color = TvTextPrimary,
-                fontSize = 24.sp,
+                modifier = Modifier.padding(start = 4.dp, bottom = 2.dp),
+                color = TvTextSecondary,
+                fontSize = 18.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.width(16.dp))
+        }
+        FocusableCard(onClick = onClick, rootModifier = Modifier.fillMaxWidth()) {
             Text(
                 text = preview,
-                modifier = Modifier.weight(0.65f),
-                color = TvTextSecondary,
-                fontSize = 20.sp,
-                maxLines = 1,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 18.dp),
+                color = TvTextPrimary,
+                fontSize = 22.sp,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
@@ -184,27 +187,28 @@ fun TabChip(
     rootModifier: Modifier = Modifier,
 ) {
     val chipShape = RoundedCornerShape(8.dp)
-    Surface(
-        onClick = onClick,
-        modifier = rootModifier,
-        shape = ClickableSurfaceDefaults.shape(shape = chipShape),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) TvSurfaceFocused else Color.Transparent,
-            focusedContainerColor = TvSurfaceFocused,
-        ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
-        border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(
-                border = BorderStroke(2.dp, TvBorderFocused),
-                shape = chipShape,
+    Box(modifier = rootModifier.padding(vertical = FocusGlowPadding)) {
+        Surface(
+            onClick = onClick,
+            shape = ClickableSurfaceDefaults.shape(shape = chipShape),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = if (selected) TvSurfaceFocused else Color.Transparent,
+                focusedContainerColor = TvSurfaceFocused,
             ),
-        ),
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            color = TvTextPrimary,
-            fontSize = 22.sp,
-        )
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+            border = ClickableSurfaceDefaults.border(
+                focusedBorder = Border(
+                    border = BorderStroke(2.dp, TvBorderFocused),
+                    shape = chipShape,
+                ),
+            ),
+        ) {
+            Text(
+                text = label,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                color = TvTextPrimary,
+                fontSize = 22.sp,
+            )
+        }
     }
 }

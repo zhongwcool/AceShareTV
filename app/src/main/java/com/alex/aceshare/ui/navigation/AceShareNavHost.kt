@@ -39,7 +39,11 @@ fun AceShareNavHost(
     ) {
         composable(Routes.Discovery) {
             val vm: DiscoveryViewModel = viewModel(
-                factory = DiscoveryViewModel.Factory(app.discovery, app.preferences),
+                factory = DiscoveryViewModel.Factory(
+                    app.discovery,
+                    app.preferences,
+                    app.updateChecker,
+                ),
             )
             DiscoveryScreen(
                 viewModel = vm,

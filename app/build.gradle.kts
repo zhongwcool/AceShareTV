@@ -14,8 +14,8 @@ android {
         applicationId = "com.alex.aceshare"
         minSdk = 25
         targetSdk = 36
-        versionCode = (findProperty("VERSION_CODE") as String?)?.toIntOrNull() ?: 1
-        versionName = (findProperty("VERSION_NAME") as String?) ?: "1.0"
+        versionCode = (findProperty("VERSION_CODE") as String?)?.toIntOrNull() ?: 10100
+        versionName = (findProperty("VERSION_NAME") as String?) ?: "1.1.0"
     }
 
     val keystoreFile = System.getenv("KEYSTORE_FILE")

@@ -3,6 +3,7 @@ package com.alex.aceshare
 import android.app.Application
 import com.alex.aceshare.data.AceShareRepository
 import com.alex.aceshare.data.ServerPreferences
+import com.alex.aceshare.data.update.AppUpdateChecker
 import com.alex.aceshare.discovery.NsdServerDiscovery
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,11 +18,14 @@ class AceShareApp : Application() {
         private set
     lateinit var repository: AceShareRepository
         private set
+    lateinit var updateChecker: AppUpdateChecker
+        private set
 
     override fun onCreate() {
         super.onCreate()
         discovery = NsdServerDiscovery(this)
         preferences = ServerPreferences(this)
         repository = AceShareRepository(scope = appScope)
+        updateChecker = AppUpdateChecker(this)
     }
 }

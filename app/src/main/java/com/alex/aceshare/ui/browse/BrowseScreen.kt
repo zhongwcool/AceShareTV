@@ -205,8 +205,8 @@ private fun SourceHeader(
     server: DiscoveredServer,
     onClick: () -> Unit,
 ) {
-    FocusableCard(onClick = onClick, rootModifier = Modifier.fillMaxWidth(0.65f)) {
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
+    FocusableCard(onClick = onClick, rootModifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(horizontal = 24.dp, vertical = 14.dp)) {
             Text(
                 text = stringResource(R.string.browse_source),
                 color = TvTextSecondary,
@@ -237,7 +237,7 @@ private fun LinesPanel(
         return
     }
     LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
         contentPadding = PaddingValues(bottom = 40.dp),
     ) {
         items(data.lines, key = { "${it.title}|${it.text}" }) { item ->
@@ -260,24 +260,15 @@ private fun TextsPanel(
         return
     }
     LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
         contentPadding = PaddingValues(bottom = 40.dp),
     ) {
         items(data.texts, key = { "${it.title}|${it.text.take(32)}" }) { item ->
-            FocusableCard(onClick = { onOpen(item) }, rootModifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(24.dp)) {
-                    Text(
-                        text = item.title,
-                        color = TvTextPrimary,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = item.text.replace('\n', ' '),
-                        color = TvTextSecondary,
-                        maxLines = 2,
-                    )
-                }
-            }
+            LineItemCard(
+                title = item.title,
+                preview = item.text.replace('\n', ' '),
+                onClick = { onOpen(item) },
+            )
         }
     }
 }
@@ -455,10 +446,10 @@ private fun DownloadDialog(
 private fun copyToClipboard(context: Context, item: TextItem) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText(item.title, item.text))
-    val label = item.title.ifBlank { item.text.take(20) }
+    val preview = item.text.replace('\n', ' ').trim().take(40)
     Toast.makeText(
         context,
-        context.getString(R.string.copied_format, label),
+        context.getString(R.string.copied_format, preview),
         Toast.LENGTH_SHORT,
     ).show()
 }
