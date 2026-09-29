@@ -25,13 +25,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -69,12 +74,17 @@ fun BrowseScreen(
     var showSwitchSource by remember { mutableStateOf(false) }
     var textDetail by remember { mutableStateOf<TextItem?>(null) }
     var downloadFile by remember { mutableStateOf<String?>(null) }
+    var restoreFileFocus by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val current = viewModel.current
+    val dismissDownloadDialog = {
+        restoreFileFocus = downloadFile
+        downloadFile = null
+    }
 
     BackHandler {
         when {
-            downloadFile != null -> downloadFile = null
+            downloadFile != null -> dismissDownloadDialog()
             textDetail != null -> textDetail = null
             showSwitchSource -> showSwitchSource = false
             else -> onBackToDiscovery()
@@ -89,7 +99,10 @@ fun BrowseScreen(
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = 40.dp, vertical = 28.dp),
+                .padding(horizontal = 40.dp, vertical = 28.dp)
+                .focusProperties {
+                    if (downloadFile != null) canFocus = false
+                },
         ) {
             SourceHeader(
                 server = current,
@@ -157,6 +170,8 @@ fun BrowseScreen(
                         BrowseTab.Files -> FilesPanel(
                             data = state.data,
                             onOpen = { downloadFile = it },
+                            pendingFocusFile = restoreFileFocus,
+                            onPendingFocusConsumed = { restoreFileFocus = null },
                         )
                     }
                 }
@@ -191,9 +206,9 @@ fun BrowseScreen(
                 downloadUrl = "${current.baseUrl}/files/${Uri.encode(name)}",
                 onDownload = { url, fileName ->
                     enqueueDownload(context, url, fileName)
-                    downloadFile = null
+                    dismissDownloadDialog()
                 },
-                onDismiss = { downloadFile = null },
+                onDismiss = dismissDownloadDialog,
             )
         }
     }
@@ -277,7 +292,21 @@ private fun TextsPanel(
 private fun FilesPanel(
     data: ListResponse,
     onOpen: (String) -> Unit,
+    pendingFocusFile: String?,
+    onPendingFocusConsumed: () -> Unit,
 ) {
+    val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
+    data.files.forEach { name ->
+        focusRequesters.getOrPut(name) { FocusRequester() }
+    }
+    LaunchedEffect(pendingFocusFile) {
+        val name = pendingFocusFile ?: return@LaunchedEffect
+        focusRequesters[name]?.requestFocus()
+        // Dialog removal clears focus in the same frame; restore again after that.
+        withFrameNanos { }
+        focusRequesters[name]?.requestFocus()
+        onPendingFocusConsumed()
+    }
     if (data.files.isEmpty()) {
         SectionEmpty(stringResource(R.string.browse_empty_files))
         return
@@ -287,7 +316,12 @@ private fun FilesPanel(
         contentPadding = PaddingValues(bottom = 40.dp),
     ) {
         items(data.files, key = { it }) { name ->
-            FocusableCard(onClick = { onOpen(name) }, rootModifier = Modifier.fillMaxWidth()) {
+            FocusableCard(
+                onClick = { onOpen(name) },
+                rootModifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequesters.getValue(name)),
+            ) {
                 Text(
                     text = name,
                     color = TvTextPrimary,
@@ -401,6 +435,14 @@ private fun DownloadDialog(
     onDownload: (String, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val startFocus = remember { FocusRequester() }
+    val closeFocus = remember { FocusRequester() }
+    LaunchedEffect(fileName) {
+        if (!startFocus.requestFocus()) {
+            withFrameNanos { }
+            startFocus.requestFocus()
+        }
+    }
     Box(
         Modifier
             .fillMaxSize()
@@ -432,15 +474,42 @@ private fun DownloadDialog(
                 FocusableButton(
                     label = stringResource(R.string.download_start),
                     onClick = { onDownload(downloadUrl, fileName) },
+                    rootModifier = Modifier
+                        .focusRequester(startFocus)
+                        .limitDialogButtonFocus(
+                            backward = FocusRequester.Cancel,
+                            forward = closeFocus,
+                        ),
                 )
                 Spacer(Modifier.width(16.dp))
                 FocusableButton(
                     label = stringResource(R.string.download_dismiss),
                     onClick = onDismiss,
+                    rootModifier = Modifier
+                        .focusRequester(closeFocus)
+                        .limitDialogButtonFocus(
+                            backward = startFocus,
+                            forward = FocusRequester.Cancel,
+                        ),
                 )
             }
         }
     }
+}
+
+/** D-pad stays on the two dialog actions; the file list behind the scrim is not a target. */
+private fun Modifier.limitDialogButtonFocus(
+    backward: FocusRequester,
+    forward: FocusRequester,
+): Modifier = focusProperties {
+    left = backward
+    right = forward
+    start = backward
+    end = forward
+    up = FocusRequester.Cancel
+    down = FocusRequester.Cancel
+    previous = backward
+    next = forward
 }
 
 private fun copyToClipboard(context: Context, item: TextItem) {
