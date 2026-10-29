@@ -29,15 +29,16 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION_NAME="${TAG#v}"
-          # versionCode: major*10000 + minor*100 + patch (e.g. 1.2.3 -> 10203)
+          # versionCode base: major*10000 + minor*100 + patch (e.g. 1.2.3 -> 10203)
+          # Gradle appends a device digit: TV +1, mobile +2.
           IFS='.' read -r MAJOR MINOR PATCH <<< "${VERSION_NAME}.0.0"
           MAJOR="${MAJOR:-0}"
           MINOR="${MINOR:-0}"
           PATCH="${PATCH:-0}"
-          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          VERSION_CODE_BASE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
-          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
+          echo "version_code_base=${VERSION_CODE_BASE}" >> "$GITHUB_OUTPUT"
 
       - name: Decode release keystore
         env:
@@ -48,29 +49,63 @@ jobs:
             echo "KEYSTORE_FILE=${GITHUB_WORKSPACE}/release.keystore" >> "$GITHUB_ENV"
           fi
 
-      - name: Build release APK
+      - name: Build release packages
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x ./gradlew
-          ./gradlew :app:assembleRelease \
+          ./gradlew :tv:assembleGithubRelease :tv:bundlePlayRelease :mobile:assembleGithubRelease :mobile:bundlePlayRelease \
             -PVERSION_NAME="${{ steps.version.outputs.version_name }}" \
-            -PVERSION_CODE="${{ steps.version.outputs.version_code }}"
+            -PVERSION_CODE_BASE="${{ steps.version.outputs.version_code_base }}"
 
-      - name: Prepare release asset
+      - name: Prepare GitHub APKs
         run: |
           mkdir -p dist
-          SRC="$(find app/build/outputs/apk/release -name '*.apk' | head -n 1)"
-          DEST="dist/AceShare-${{ steps.version.outputs.tag }}.apk"
-          cp "$SRC" "$DEST"
-          echo "asset=${DEST}" >> "$GITHUB_ENV"
+          TV_SRC="$(find tv/build/outputs/apk/github/release -name '*.apk' | head -n 1)"
+          MOBILE_SRC="$(find mobile/build/outputs/apk/github/release -name '*.apk' | head -n 1)"
+          cp "$TV_SRC" "dist/AceShare-TV-${{ steps.version.outputs.tag }}.apk"
+          cp "$MOBILE_SRC" "dist/AceShare-Mobile-${{ steps.version.outputs.tag }}.apk"
 
+      # Installed TV builds download the first .apk on this repo's latest release.
+      # This release must contain only the TV APK.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: AceShare ${{ steps.version.outputs.tag }}
           generate_release_notes: true
-          files: ${{ env.asset }}
+          files: dist/AceShare-TV-${{ steps.version.outputs.tag }}.apk
+
+      - name: Check mobile release token
+        id: mobile_token
+        env:
+          MOBILE_TOKEN: ${{ secrets.ACESHARE_MOBILE_RELEASE_TOKEN }}
+        run: |
+          if [ -n "$MOBILE_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "ACESHARE_MOBILE_RELEASE_TOKEN is unset; skipping AceShareMobile release."
+          fi
+
+      - name: Publish mobile APK
+        if: steps.mobile_token.outputs.present == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: zhongwcool/AceShareMobile
+          token: ${{ secrets.ACESHARE_MOBILE_RELEASE_TOKEN }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: AceShare Mobile ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: dist/AceShare-Mobile-${{ steps.version.outputs.tag }}.apk
+
+      - name: Upload Play App Bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: play-bundles-${{ steps.version.outputs.tag }}
+          path: |
+            tv/build/outputs/bundle/playRelease/*.aab
+            mobile/build/outputs/bundle/playRelease/*.aab
+          if-no-files-found: error

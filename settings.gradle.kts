@@ -40,4 +40,7 @@ if (jlink == null) {
 }
 
 rootProject.name = "AceShare"
-include(":app")
+include(":core")
+include(":update")
+include(":tv")
+include(":mobile")
