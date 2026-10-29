@@ -1,5 +1,6 @@
 package com.alex.aceshare.data
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -43,6 +44,14 @@ class AceShareRepository(
         startPolling(baseUrl)
     }
 
+    suspend fun uploadFiles(
+        files: List<UploadFile>,
+        onProgress: (UploadProgress) -> Unit,
+    ): UploadResponse {
+        val url = baseUrl ?: throw UploadException("未连接服务器")
+        return api.uploadFiles(url, files, onProgress)
+    }
+
     fun refresh() {
         val url = baseUrl ?: return
         refreshJob?.cancel()
@@ -52,6 +61,7 @@ class AceShareRepository(
                     _content.value = BrowseContentState.Ready(list)
                 }
                 .onFailure { e ->
+                    if (e is CancellationException) return@launch
                     if (_content.value !is BrowseContentState.Ready) {
                         _content.value = BrowseContentState.Error(
                             e.message ?: "Connection failed",

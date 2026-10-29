@@ -22,6 +22,17 @@ data class VersionResponse(
     val buildTime: String? = null,
 )
 
+@Serializable
+data class UploadedFile(
+    val name: String,
+    val size: Long = 0,
+)
+
+@Serializable
+data class UploadResponse(
+    val files: List<UploadedFile> = emptyList(),
+)
+
 data class DiscoveredServer(
     val instanceName: String,
     val host: String,

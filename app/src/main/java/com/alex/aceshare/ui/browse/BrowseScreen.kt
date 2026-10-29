@@ -1,6 +1,7 @@
 package com.alex.aceshare.ui.browse
 
 import android.app.DownloadManager
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -8,10 +9,14 @@ import android.net.Uri
 import android.os.Environment
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,6 +44,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,6 +55,8 @@ import com.alex.aceshare.data.BrowseContentState
 import com.alex.aceshare.data.DiscoveredServer
 import com.alex.aceshare.data.ListResponse
 import com.alex.aceshare.data.TextItem
+import com.alex.aceshare.ui.theme.TvPrimary
+import com.alex.aceshare.ui.theme.TvSurfaceFocused
 import com.alex.aceshare.ui.components.FocusableButton
 import com.alex.aceshare.ui.components.FocusableCard
 import com.alex.aceshare.ui.components.LineItemCard
@@ -70,20 +78,68 @@ fun BrowseScreen(
 ) {
     val content by viewModel.content.collectAsStateWithLifecycle()
     val servers by viewModel.discoveredServers.collectAsStateWithLifecycle()
+    val upload by viewModel.upload.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableIntStateOf(0) }
     var showSwitchSource by remember { mutableStateOf(false) }
     var textDetail by remember { mutableStateOf<TextItem?>(null) }
     var downloadFile by remember { mutableStateOf<String?>(null) }
     var restoreFileFocus by remember { mutableStateOf<String?>(null) }
+    var showNoPicker by remember { mutableStateOf(false) }
+    var restoreUploadFocus by remember { mutableStateOf(false) }
+    var uploadOverlayVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val current = viewModel.current
+    val openDocuments = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris ->
+        if (uris.isNotEmpty()) viewModel.upload(uris)
+    }
+    val getContents = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetMultipleContents(),
+    ) { uris ->
+        if (uris.isNotEmpty()) viewModel.upload(uris)
+    }
     val dismissDownloadDialog = {
         restoreFileFocus = downloadFile
         downloadFile = null
     }
+    val pickFiles = {
+        if (upload is UploadUiState.Idle && !showNoPicker) {
+            try {
+                openDocuments.launch(arrayOf("*/*"))
+            } catch (_: ActivityNotFoundException) {
+                try {
+                    getContents.launch("*/*")
+                } catch (_: ActivityNotFoundException) {
+                    showNoPicker = true
+                } catch (_: IllegalStateException) {
+                    // The document picker is already open.
+                }
+            } catch (_: IllegalStateException) {
+                // The document picker is already open.
+            }
+        }
+    }
+    val blockBackgroundFocus = downloadFile != null ||
+        showNoPicker ||
+        upload !is UploadUiState.Idle
+
+    LaunchedEffect(upload) {
+        val visible = upload !is UploadUiState.Idle
+        if (uploadOverlayVisible && !visible) {
+            restoreUploadFocus = true
+        }
+        uploadOverlayVisible = visible
+    }
 
     BackHandler {
         when {
+            upload is UploadUiState.Uploading -> viewModel.cancelUpload()
+            upload !is UploadUiState.Idle -> viewModel.dismissUploadResult()
+            showNoPicker -> {
+                restoreUploadFocus = true
+                showNoPicker = false
+            }
             downloadFile != null -> dismissDownloadDialog()
             textDetail != null -> textDetail = null
             showSwitchSource -> showSwitchSource = false
@@ -101,7 +157,7 @@ fun BrowseScreen(
                 .fillMaxSize()
                 .padding(horizontal = 40.dp, vertical = 28.dp)
                 .focusProperties {
-                    if (downloadFile != null) canFocus = false
+                    if (blockBackgroundFocus) canFocus = false
                 },
         ) {
             SourceHeader(
@@ -170,6 +226,9 @@ fun BrowseScreen(
                         BrowseTab.Files -> FilesPanel(
                             data = state.data,
                             onOpen = { downloadFile = it },
+                            onUpload = pickFiles,
+                            requestUploadFocus = restoreUploadFocus,
+                            onUploadFocusConsumed = { restoreUploadFocus = false },
                             pendingFocusFile = restoreFileFocus,
                             onPendingFocusConsumed = { restoreFileFocus = null },
                         )
@@ -210,6 +269,81 @@ fun BrowseScreen(
                 },
                 onDismiss = dismissDownloadDialog,
             )
+        }
+
+        when (val uploadState = upload) {
+            UploadUiState.Idle -> Unit
+            is UploadUiState.Uploading -> UploadProgressDialog(
+                state = uploadState,
+                onCancel = { viewModel.cancelUpload() },
+            )
+            is UploadUiState.Success -> UploadNoticeDialog(
+                title = stringResource(R.string.upload_done_title),
+                onDismiss = { viewModel.dismissUploadResult() },
+            ) {
+                Text(
+                    text = stringResource(R.string.upload_done_message),
+                    color = TvTextSecondary,
+                    fontSize = 20.sp,
+                )
+                Spacer(Modifier.height(12.dp))
+                uploadState.files.take(8).forEach { file ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = file.name,
+                            modifier = Modifier.weight(1f),
+                            color = TvTextPrimary,
+                            fontSize = 22.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Text(
+                            text = formatByteSize(file.size),
+                            color = TvTextSecondary,
+                            fontSize = 20.sp,
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+                val hiddenCount = uploadState.files.size - 8
+                if (hiddenCount > 0) {
+                    Text(
+                        text = stringResource(R.string.upload_done_more, hiddenCount),
+                        color = TvTextSecondary,
+                        fontSize = 20.sp,
+                    )
+                }
+            }
+            is UploadUiState.Failure -> UploadNoticeDialog(
+                title = stringResource(R.string.upload_failed_title),
+                onDismiss = { viewModel.dismissUploadResult() },
+            ) {
+                Text(
+                    text = uploadState.message,
+                    color = TvError,
+                    fontSize = 22.sp,
+                )
+            }
+        }
+
+        if (showNoPicker) {
+            UploadNoticeDialog(
+                title = stringResource(R.string.upload_action),
+                onDismiss = {
+                    restoreUploadFocus = true
+                    showNoPicker = false
+                },
+            ) {
+                Text(
+                    text = stringResource(R.string.upload_no_picker),
+                    color = TvTextPrimary,
+                    fontSize = 22.sp,
+                )
+            }
         }
     }
 }
@@ -289,15 +423,26 @@ private fun TextsPanel(
 }
 
 @Composable
-private fun FilesPanel(
+private fun ColumnScope.FilesPanel(
     data: ListResponse,
     onOpen: (String) -> Unit,
+    onUpload: () -> Unit,
+    requestUploadFocus: Boolean,
+    onUploadFocusConsumed: () -> Unit,
     pendingFocusFile: String?,
     onPendingFocusConsumed: () -> Unit,
 ) {
+    val uploadFocus = remember { FocusRequester() }
     val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
     data.files.forEach { name ->
         focusRequesters.getOrPut(name) { FocusRequester() }
+    }
+    LaunchedEffect(requestUploadFocus) {
+        if (!requestUploadFocus) return@LaunchedEffect
+        uploadFocus.requestFocus()
+        withFrameNanos { }
+        uploadFocus.requestFocus()
+        onUploadFocusConsumed()
     }
     LaunchedEffect(pendingFocusFile) {
         val name = pendingFocusFile ?: return@LaunchedEffect
@@ -307,26 +452,43 @@ private fun FilesPanel(
         focusRequesters[name]?.requestFocus()
         onPendingFocusConsumed()
     }
-    if (data.files.isEmpty()) {
-        SectionEmpty(stringResource(R.string.browse_empty_files))
-        return
-    }
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(bottom = 40.dp),
-    ) {
-        items(data.files, key = { it }) { name ->
-            FocusableCard(
-                onClick = { onOpen(name) },
-                rootModifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequesters.getValue(name)),
+    Column(Modifier.weight(1f).fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FocusableButton(
+                label = stringResource(R.string.upload_action),
+                onClick = onUpload,
+                rootModifier = Modifier.focusRequester(uploadFocus),
+            )
+            Spacer(Modifier.width(16.dp))
+            Text(
+                text = stringResource(R.string.upload_hint),
+                color = TvTextSecondary,
+                fontSize = 18.sp,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        if (data.files.isEmpty()) {
+            SectionEmpty(stringResource(R.string.browse_empty_files))
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 40.dp),
             ) {
-                Text(
-                    text = name,
-                    color = TvTextPrimary,
-                    modifier = Modifier.padding(24.dp),
-                )
+                items(data.files, key = { it }) { name ->
+                    FocusableCard(
+                        onClick = { onOpen(name) },
+                        rootModifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequesters.getValue(name)),
+                    ) {
+                        Text(
+                            text = name,
+                            color = TvTextPrimary,
+                            modifier = Modifier.padding(24.dp),
+                        )
+                    }
+                }
             }
         }
     }
@@ -510,6 +672,180 @@ private fun Modifier.limitDialogButtonFocus(
     down = FocusRequester.Cancel
     previous = backward
     next = forward
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun UploadProgressDialog(
+    state: UploadUiState.Uploading,
+    onCancel: () -> Unit,
+) {
+    val cancelFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        if (!cancelFocus.requestFocus()) {
+            withFrameNanos { }
+            cancelFocus.requestFocus()
+        }
+    }
+    val fraction = if (state.bytesTotal > 0L) {
+        (state.bytesSent.coerceAtLeast(0L).toFloat() / state.bytesTotal.toFloat()).coerceIn(0f, 1f)
+    } else {
+        null
+    }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(TvBackground.copy(alpha = 0.92f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth(0.7f)
+                .padding(32.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.upload_in_progress),
+                color = TvTextPrimary,
+                fontSize = 28.sp,
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.upload_file_count, state.index, state.count),
+                color = TvTextSecondary,
+                fontSize = 20.sp,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = state.fileName,
+                color = TvTextPrimary,
+                fontSize = 22.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(16.dp))
+            if (fraction != null) {
+                UploadProgressBar(fraction)
+                Spacer(Modifier.height(8.dp))
+                val percent = ((state.bytesSent.coerceAtLeast(0L) * 100) / state.bytesTotal)
+                    .toInt()
+                    .coerceIn(0, 100)
+                Text(
+                    text = stringResource(
+                        R.string.upload_bytes,
+                        formatByteSize(state.bytesSent),
+                        formatByteSize(state.bytesTotal),
+                        percent,
+                    ),
+                    color = TvTextSecondary,
+                    fontSize = 20.sp,
+                )
+            } else {
+                Text(
+                    text = stringResource(
+                        R.string.upload_bytes_sent,
+                        formatByteSize(state.bytesSent.coerceAtLeast(0L)),
+                    ),
+                    color = TvTextSecondary,
+                    fontSize = 20.sp,
+                )
+            }
+            Spacer(Modifier.height(28.dp))
+            FocusableButton(
+                label = stringResource(R.string.upload_cancel),
+                onClick = onCancel,
+                rootModifier = Modifier
+                    .focusRequester(cancelFocus)
+                    .limitDialogButtonFocus(
+                        backward = FocusRequester.Cancel,
+                        forward = FocusRequester.Cancel,
+                    ),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun UploadNoticeDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    body: @Composable () -> Unit,
+) {
+    val closeFocus = remember { FocusRequester() }
+    LaunchedEffect(title) {
+        if (!closeFocus.requestFocus()) {
+            withFrameNanos { }
+            closeFocus.requestFocus()
+        }
+    }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(TvBackground.copy(alpha = 0.92f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth(0.7f)
+                .padding(32.dp),
+        ) {
+            Text(
+                text = title,
+                color = TvTextPrimary,
+                fontSize = 28.sp,
+            )
+            Spacer(Modifier.height(16.dp))
+            body()
+            Spacer(Modifier.height(28.dp))
+            FocusableButton(
+                label = stringResource(R.string.download_dismiss),
+                onClick = onDismiss,
+                rootModifier = Modifier
+                    .focusRequester(closeFocus)
+                    .limitDialogButtonFocus(
+                        backward = FocusRequester.Cancel,
+                        forward = FocusRequester.Cancel,
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun UploadProgressBar(fraction: Float) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(10.dp)
+            .background(TvSurfaceFocused, RoundedCornerShape(5.dp)),
+    ) {
+        if (fraction > 0f) {
+            Box(
+                Modifier
+                    .fillMaxWidth(fraction.coerceIn(0f, 1f))
+                    .height(10.dp)
+                    .background(TvPrimary, RoundedCornerShape(5.dp)),
+            )
+        }
+    }
+}
+
+private fun formatByteSize(bytes: Long): String {
+    if (bytes < 0L) return "—"
+    if (bytes < 1024L) return "$bytes B"
+    val units = arrayOf("KB", "MB", "GB", "TB")
+    var value = bytes.toDouble()
+    var unitIndex = -1
+    while (value >= 1024.0 && unitIndex < units.lastIndex) {
+        value /= 1024.0
+        unitIndex++
+    }
+    val shown = if (value >= 10.0 || value % 1.0 == 0.0) {
+        value.toLong().toString()
+    } else {
+        String.format(java.util.Locale.US, "%.1f", value)
+    }
+    return "$shown ${units[unitIndex]}"
 }
 
 private fun copyToClipboard(context: Context, item: TextItem) {

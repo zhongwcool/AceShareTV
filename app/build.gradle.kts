@@ -13,7 +13,7 @@ android {
     defaultConfig {
         applicationId = "com.alex.aceshare"
         minSdk = 25
-        targetSdk = 36
+        targetSdk = 37
         versionCode = (findProperty("VERSION_CODE") as String?)?.toIntOrNull() ?: 10100
         versionName = (findProperty("VERSION_NAME") as String?) ?: "1.1.0"
     }
@@ -53,8 +53,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures {
         compose = true

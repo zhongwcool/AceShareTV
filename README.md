@@ -1,6 +1,6 @@
 # AceShare TV
 
-Android TV 客户端，通过局域网 mDNS 发现 AceShare 服务，用遥控器浏览并复制 lines / texts，查看 files。
+Android TV 客户端，通过局域网 mDNS 发现 AceShare 服务，用遥控器浏览并复制 lines / texts，查看或上传 files。
 
 ## 要求
 
@@ -53,6 +53,7 @@ app/src/main/java/com/alex/aceshare/
 - `GET /api/list` → files / lines / texts
 - `GET /api/events` → SSE `change`（失败时 8s 轮询兜底）
 - `GET /files/{name}` → 文件下载
+- `POST /api/upload` → `multipart/form-data` 上传到 `files/`，字段名 `file`（可多选）。重名保存为 `名称_2.扩展名`
 
 详见 [docs/android-tv-client-prompt.md](docs/android-tv-client-prompt.md)。
 

@@ -73,6 +73,7 @@ fun AceShareNavHost(
             )
             val vm: BrowseViewModel = viewModel(
                 factory = BrowseViewModel.Factory(
+                    app = app,
                     repository = app.repository,
                     discovery = app.discovery,
                     preferences = app.preferences,
