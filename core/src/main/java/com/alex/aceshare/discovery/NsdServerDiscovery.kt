@@ -233,6 +233,15 @@ class NsdServerDiscovery(context: Context) {
                     port = port,
                     version = version,
                 )
+                // Same instance can be resolved again with a new address while the
+                // previous host:port entry is still held. Discovery refresh does not
+                // emit service-lost, so drop the stale addresses here.
+                val stale = serversByKey.entries
+                    .filter { it.value.instanceName == server.instanceName && it.key != server.key }
+                    .map { it.key }
+                for (key in stale) {
+                    serversByKey.remove(key)
+                }
                 serversByKey[server.key] = server
                 publish()
                 Log.d(TAG, "Resolved: ${server.instanceName} -> ${server.baseUrl}")
