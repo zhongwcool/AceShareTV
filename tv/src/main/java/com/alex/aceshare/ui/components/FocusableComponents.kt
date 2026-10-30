@@ -138,23 +138,26 @@ fun LineItemCard(
     onClick: () -> Unit,
     rootModifier: Modifier = Modifier,
 ) {
-    Column(rootModifier.fillMaxWidth()) {
-        if (title.isNotBlank()) {
-            Text(
-                text = title,
-                modifier = Modifier.padding(start = 4.dp, bottom = 2.dp),
-                color = TvTextSecondary,
-                fontSize = 18.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        FocusableCard(onClick = onClick, rootModifier = Modifier.fillMaxWidth()) {
+    FocusableCard(onClick = onClick, rootModifier = rootModifier.fillMaxWidth()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 18.dp),
+        ) {
+            if (title.isNotBlank()) {
+                Text(
+                    text = title,
+                    color = TvTextSecondary,
+                    fontSize = 18.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
                 text = preview,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 18.dp),
+                    .padding(top = if (title.isNotBlank()) 8.dp else 0.dp),
                 color = TvTextPrimary,
                 fontSize = 22.sp,
                 maxLines = 2,
