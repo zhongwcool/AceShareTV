@@ -11,10 +11,13 @@ class ReleaseAssetsTest {
     fun selectApkAsset_matchesPrefixAndSuffixIgnoringCase() {
         val assets = listOf(
             asset("notes.txt"),
-            asset("AceShare-Mobile-v1.2.0.apk"),
+            asset("Mobile-AceShare-v1.2.0.apk"),
+            asset("Mobile-AceShare-v1.2.0.aab"),
             asset("aceshare-tv-v1.2.0.APK"),
+            asset("AceShare-TV-v1.2.0.aab"),
         )
         assertEquals("aceshare-tv-v1.2.0.APK", selectApkAsset(assets, "AceShare-TV-")?.name)
+        assertEquals("Mobile-AceShare-v1.2.0.apk", selectApkAsset(assets, "Mobile-AceShare-")?.name)
     }
 
     @Test

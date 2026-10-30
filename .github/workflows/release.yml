@@ -60,52 +60,33 @@ jobs:
             -PVERSION_NAME="${{ steps.version.outputs.version_name }}" \
             -PVERSION_CODE_BASE="${{ steps.version.outputs.version_code_base }}"
 
-      - name: Prepare GitHub APKs
+      - name: Prepare release files
         run: |
           mkdir -p dist
-          TV_SRC="$(find tv/build/outputs/apk/github/release -name '*.apk' | head -n 1)"
-          MOBILE_SRC="$(find mobile/build/outputs/apk/github/release -name '*.apk' | head -n 1)"
-          cp "$TV_SRC" "dist/AceShare-TV-${{ steps.version.outputs.tag }}.apk"
-          cp "$MOBILE_SRC" "dist/AceShare-Mobile-${{ steps.version.outputs.tag }}.apk"
+          TAG="${{ steps.version.outputs.tag }}"
+          TV_APK="$(find tv/build/outputs/apk/github/release -name '*.apk' | head -n 1)"
+          MOBILE_APK="$(find mobile/build/outputs/apk/github/release -name '*.apk' | head -n 1)"
+          TV_AAB="$(find tv/build/outputs/bundle/playRelease -name '*.aab' | head -n 1)"
+          MOBILE_AAB="$(find mobile/build/outputs/bundle/playRelease -name '*.aab' | head -n 1)"
+          cp "$TV_APK" "dist/AceShare-TV-${TAG}.apk"
+          cp "$TV_AAB" "dist/AceShare-TV-${TAG}.aab"
+          # Mobile APK must sort after AceShare-TV-*.apk. v1.1.0 and earlier
+          # download the first .apk in GitHub's name order.
+          cp "$MOBILE_APK" "dist/Mobile-AceShare-${TAG}.apk"
+          cp "$MOBILE_AAB" "dist/Mobile-AceShare-${TAG}.aab"
+          test -s "dist/AceShare-TV-${TAG}.apk"
+          test -s "dist/AceShare-TV-${TAG}.aab"
+          test -s "dist/Mobile-AceShare-${TAG}.apk"
+          test -s "dist/Mobile-AceShare-${TAG}.aab"
 
-      # Installed TV builds download the first .apk on this repo's latest release.
-      # This release must contain only the TV APK.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: AceShare ${{ steps.version.outputs.tag }}
           generate_release_notes: true
-          files: dist/AceShare-TV-${{ steps.version.outputs.tag }}.apk
-
-      - name: Check mobile release token
-        id: mobile_token
-        env:
-          MOBILE_TOKEN: ${{ secrets.ACESHARE_MOBILE_RELEASE_TOKEN }}
-        run: |
-          if [ -n "$MOBILE_TOKEN" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "ACESHARE_MOBILE_RELEASE_TOKEN is unset; skipping AceShareMobile release."
-          fi
-
-      - name: Publish mobile APK
-        if: steps.mobile_token.outputs.present == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          repository: zhongwcool/AceShareMobile
-          token: ${{ secrets.ACESHARE_MOBILE_RELEASE_TOKEN }}
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: AceShare Mobile ${{ steps.version.outputs.tag }}
-          generate_release_notes: true
-          files: dist/AceShare-Mobile-${{ steps.version.outputs.tag }}.apk
-
-      - name: Upload Play App Bundles
-        uses: actions/upload-artifact@v4
-        with:
-          name: play-bundles-${{ steps.version.outputs.tag }}
-          path: |
-            tv/build/outputs/bundle/playRelease/*.aab
-            mobile/build/outputs/bundle/playRelease/*.aab
-          if-no-files-found: error
+          files: |
+            dist/AceShare-TV-${{ steps.version.outputs.tag }}.apk
+            dist/AceShare-TV-${{ steps.version.outputs.tag }}.aab
+            dist/Mobile-AceShare-${{ steps.version.outputs.tag }}.apk
+            dist/Mobile-AceShare-${{ steps.version.outputs.tag }}.aab

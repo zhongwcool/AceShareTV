@@ -41,9 +41,9 @@ Play 包：
 
 推送 `v*` tag 后，CI 会：
 
-- 把 `AceShare-TV-vX.Y.Z.apk` 附到本仓库的 Release。这个 Release 里只能有电视 APK，已安装的旧电视客户端会下载最新 Release 中的第一个 `.apk`。
-- 若配置了 secret `ACESHARE_MOBILE_RELEASE_TOKEN`（对 `zhongwcool/AceShareMobile` 有写权限的 PAT），把 `AceShare-Mobile-vX.Y.Z.apk` 发到该仓库。
-- 把两端的 Play AAB 存成 workflow artifact，供手动上传 Play Console。
+- 把四个文件附到本仓库的 Release：`AceShare-TV-vX.Y.Z.apk`、`AceShare-TV-vX.Y.Z.aab`、`Mobile-AceShare-vX.Y.Z.apk`、`Mobile-AceShare-vX.Y.Z.aab`。
+- 电视和手机的应用内更新都读这个 Release，分别按 `AceShare-TV-` 和 `Mobile-AceShare-` 选择 APK，忽略 AAB。
+- v1.1.0 及更早的电视端会下载按文件名排序后的第一个 `.apk`。手机 APK 因此用 `Mobile-AceShare-` 前缀，排在 `AceShare-TV-` 后面。不要再添加文件名排在 `AceShare-TV-` 前面的 `.apk`。
 
 Play 应用签名使用现有的 release keystore，这样 GitHub 安装的用户可以升级到 Play 版。电视 AAB 上传到 Android TV 轨道，手机 AAB 上传到手机轨道。
 
