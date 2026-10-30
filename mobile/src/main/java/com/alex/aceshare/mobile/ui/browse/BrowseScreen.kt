@@ -6,7 +6,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -44,6 +43,9 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -105,6 +107,16 @@ fun BrowseScreen(
     val navigator = rememberListDetailPaneScaffoldNavigator<String>()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val onCopy: (TextItem) -> Unit = { item ->
+        if (copyToClipboard(context, item)) {
+            val message = context.getString(R.string.copied_format, copyPreview(item))
+            scope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(message)
+            }
+        }
+    }
     val current = viewModel.current
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
     val layoutType = NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(adaptiveInfo)
@@ -192,6 +204,17 @@ fun BrowseScreen(
         layoutType = layoutType,
     ) {
         Scaffold(
+            snackbarHost = {
+                SnackbarHost(snackbarHostState) { data ->
+                    Snackbar(Modifier.padding(12.dp)) {
+                        Text(
+                            text = data.visuals.message,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            },
             contentWindowInsets = if (layoutType == NavigationSuiteType.NavigationBar) {
                 WindowInsets(0, 0, 0, 0)
             } else {
@@ -286,7 +309,7 @@ fun BrowseScreen(
                             BrowseTab.Lines -> LinesPanel(
                                 data = state.data,
                                 wide = wide,
-                                onCopy = { copyToClipboard(context, it) },
+                                onCopy = onCopy,
                             )
                             BrowseTab.Texts -> TextsPanel(
                                 data = state.data,
@@ -299,7 +322,7 @@ fun BrowseScreen(
                                         )
                                     }
                                 },
-                                onCopy = { copyToClipboard(context, it) },
+                                onCopy = onCopy,
                             )
                             BrowseTab.Files -> FilesPanel(
                                 data = state.data,
@@ -715,17 +738,15 @@ private fun UploadSuccessDialog(
 
 private fun textItemKey(item: TextItem): String = "${item.title}|${item.text.take(32)}"
 
-private fun copyToClipboard(context: Context, item: TextItem) {
-    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
+private fun copyToClipboard(context: Context, item: TextItem): Boolean {
+    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return false
     clipboard.setPrimaryClip(ClipData.newPlainText(item.title, item.text))
-    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
-        val preview = item.text.replace('\n', ' ').trim().take(40)
-        Toast.makeText(
-            context,
-            context.getString(R.string.copied_format, preview),
-            Toast.LENGTH_SHORT,
-        ).show()
-    }
+    return true
+}
+
+private fun copyPreview(item: TextItem): String {
+    val singleLine = item.text.ifBlank { item.title }.replace('\n', ' ').trim()
+    return if (singleLine.length <= 40) singleLine else "${singleLine.take(40)}…"
 }
 
 private fun enqueueDownload(context: Context, url: String, fileName: String) {
