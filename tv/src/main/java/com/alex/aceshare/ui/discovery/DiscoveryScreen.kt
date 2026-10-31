@@ -23,7 +23,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -35,7 +34,6 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.alex.aceshare.R
 import com.alex.aceshare.data.DiscoveredServer
-import com.alex.aceshare.data.update.AppUpdateInfo
 import com.alex.aceshare.ui.components.FocusableButton
 import com.alex.aceshare.ui.components.ServerCard
 import com.alex.aceshare.ui.theme.TvBackground
@@ -68,8 +66,7 @@ fun DiscoveryScreen(
             is UpdateUiState.Available,
             is UpdateUiState.Error,
             -> viewModel.dismissUpdate()
-            is UpdateUiState.Downloading -> Unit
-            UpdateUiState.Idle -> onExitRequest()
+            else -> onExitRequest()
         }
     }
 
@@ -99,9 +96,7 @@ fun DiscoveryScreen(
                     onDismiss = { viewModel.dismissUpdate() },
                 )
             }
-            is UpdateUiState.Downloading -> {
-                UpdateDownloadingDialog(progress = update.progress)
-            }
+            is UpdateUiState.Downloading -> Unit
             is UpdateUiState.Error -> {
                 UpdateErrorDialog(
                     error = update.messageRes,
@@ -183,86 +178,6 @@ private fun ServerListContent(
                 )
             }
         }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun UpdateAvailableDialog(
-    info: AppUpdateInfo,
-    currentVersionName: String,
-    onUpdate: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(TvBackground.copy(alpha = 0.92f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth(0.7f)
-                .padding(32.dp),
-            horizontalAlignment = Alignment.Start,
-        ) {
-            Text(
-                text = stringResource(R.string.update_title),
-                color = TvTextPrimary,
-                fontSize = 32.sp,
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = stringResource(
-                    R.string.update_message,
-                    currentVersionName,
-                    info.versionName,
-                ),
-                color = TvTextSecondary,
-                fontSize = 20.sp,
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = info.releaseNotes.ifBlank {
-                    stringResource(R.string.update_notes_empty)
-                },
-                color = TvTextSecondary,
-                fontSize = 18.sp,
-                maxLines = 8,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(28.dp))
-            Row {
-                FocusableButton(
-                    label = stringResource(R.string.update_now),
-                    onClick = onUpdate,
-                )
-                Spacer(Modifier.width(16.dp))
-                FocusableButton(
-                    label = stringResource(R.string.update_later),
-                    onClick = onDismiss,
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun UpdateDownloadingDialog(
-    progress: Int,
-) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(TvBackground.copy(alpha = 0.92f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = stringResource(R.string.update_downloading, progress),
-            color = TvTextPrimary,
-            fontSize = 28.sp,
-        )
     }
 }
 

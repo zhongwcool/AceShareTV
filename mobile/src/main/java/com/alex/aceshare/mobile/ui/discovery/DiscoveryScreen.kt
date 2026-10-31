@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,7 +41,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.airbnb.lottie.compose.LottieAnimation
@@ -263,58 +261,15 @@ private fun UpdateDialogs(
 ) {
     when (val update = updateState) {
         is UpdateUiState.Available -> {
-            AlertDialog(
-                onDismissRequest = onDismiss,
-                title = { Text(stringResource(R.string.update_title)) },
-                text = {
-                    Column {
-                        Text(
-                            stringResource(
-                                R.string.update_message,
-                                update.currentVersionName,
-                                update.info.versionName,
-                            ),
-                        )
-                        Text(
-                            text = update.info.releaseNotes.ifBlank {
-                                stringResource(R.string.update_notes_empty)
-                            },
-                            modifier = Modifier.padding(top = 12.dp),
-                            maxLines = 8,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = onUpdate) {
-                        Text(stringResource(R.string.update_now))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.update_later))
-                    }
-                },
+            UpdateAvailableDialog(
+                currentVersionName = update.currentVersionName,
+                versionName = update.info.versionName,
+                releaseNotes = update.info.releaseNotes,
+                onUpdate = onUpdate,
+                onDismiss = onDismiss,
             )
         }
-        is UpdateUiState.Downloading -> {
-            Dialog(onDismissRequest = {}) {
-                Card {
-                    Column(Modifier.padding(24.dp)) {
-                        Text(
-                            text = stringResource(R.string.update_downloading, update.progress),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        LinearProgressIndicator(
-                            progress = { update.progress.coerceIn(0, 100) / 100f },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 16.dp),
-                        )
-                    }
-                }
-            }
-        }
+        is UpdateUiState.Downloading -> Unit
         is UpdateUiState.Error -> {
             UpdateErrorDialog(error = update, onDismiss = onDismiss, onUpdate = onUpdate)
         }

@@ -1,8 +1,19 @@
 package com.alex.aceshare.ui.navigation
 
 import android.net.Uri
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -15,6 +26,8 @@ import com.alex.aceshare.ui.browse.BrowseScreen
 import com.alex.aceshare.ui.browse.BrowseViewModel
 import com.alex.aceshare.ui.discovery.DiscoveryScreen
 import com.alex.aceshare.ui.discovery.DiscoveryViewModel
+import com.alex.aceshare.ui.discovery.UpdateDownloadBar
+import com.alex.aceshare.ui.discovery.UpdateUiState
 
 object Routes {
     const val Discovery = "discovery"
@@ -33,21 +46,25 @@ fun AceShareNavHost(
     val navController = rememberNavController()
     val app = LocalContext.current.applicationContext as AceShareApp
     val container = app.container
+    val discoveryViewModel: DiscoveryViewModel = viewModel(
+        factory = DiscoveryViewModel.Factory(
+            container.discovery,
+            container.preferences,
+            container.appUpdater,
+        ),
+    )
+    val updateState by discoveryViewModel.updateUiState.collectAsStateWithLifecycle()
+    val downloading = updateState as? UpdateUiState.Downloading
 
-    NavHost(
-        navController = navController,
-        startDestination = Routes.Discovery,
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        NavHost(
+            navController = navController,
+            startDestination = Routes.Discovery,
+            modifier = Modifier.fillMaxSize(),
+        ) {
         composable(Routes.Discovery) {
-            val vm: DiscoveryViewModel = viewModel(
-                factory = DiscoveryViewModel.Factory(
-                    container.discovery,
-                    container.preferences,
-                    container.appUpdater,
-                ),
-            )
             DiscoveryScreen(
-                viewModel = vm,
+                viewModel = discoveryViewModel,
                 onServerSelected = { server ->
                     navController.navigate(Routes.browse(server)) {
                         launchSingleTop = true
@@ -86,6 +103,15 @@ fun AceShareNavHost(
                 onBackToDiscovery = {
                     navController.popBackStack(Routes.Discovery, inclusive = false)
                 },
+            )
+        }
+        }
+        downloading?.let {
+            UpdateDownloadBar(
+                progress = it.progress,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom)),
             )
         }
     }
