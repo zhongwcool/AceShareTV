@@ -2,10 +2,12 @@
 <resources>
     <string name="app_name">AceShare</string>
     <string name="navigate_back">返回</string>
-    <string name="discovery_searching">正在查找局域网中的 AceShare 服务器</string>
-    <string name="discovery_hint">请确认电脑已运行 AceShare。手机需在同一 Wi‑Fi；模拟器会直接连接这台电脑</string>
+    <string name="discovery_searching">正在查找局域网中的\nAceShare 服务器</string>
+    <string name="discovery_hints_title">请先确认</string>
+    <string name="discovery_hint_pc">电脑已运行 AceShare</string>
+    <string name="discovery_hint_wifi">手机与电脑在同一 Wi‑Fi</string>
     <string name="discovery_title">选择 AceShare 服务器</string>
-    <string name="discovery_footer_version">版本 v%1$s · </string>
+    <string name="discovery_footer_version">版本 v%1$s</string>
     <string name="about_developer">关于开发者</string>
     <string name="about_version">版本 v%1$s</string>
     <string name="about_intro">如有问题或建议，请发邮件联系开发者。</string>

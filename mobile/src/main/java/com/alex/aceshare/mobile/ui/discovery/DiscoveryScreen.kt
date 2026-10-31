@@ -1,28 +1,45 @@
 package com.alex.aceshare.mobile.ui.discovery
 
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -30,19 +47,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
@@ -57,6 +72,9 @@ import com.alex.aceshare.mobile.ui.about.readAppVersionName
 import com.alex.aceshare.ui.discovery.DiscoveryViewModel
 import com.alex.aceshare.ui.discovery.UpdateError
 import com.alex.aceshare.ui.discovery.UpdateUiState
+import kotlinx.coroutines.delay
+
+private const val HintRevealDelayMillis = 10_000L
 
 @Composable
 fun DiscoveryScreen(
@@ -97,28 +115,31 @@ fun DiscoveryScreen(
         }
     }
 
-    Box(
+    Column(
         Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
-        if (state.servers.isEmpty()) {
-            SearchingContent()
-        } else if (wide) {
-            ServerGrid(
-                servers = state.servers,
-                onSelect = { viewModel.selectServer(it) },
-            )
-        } else {
-            ServerList(
-                servers = state.servers,
-                onSelect = { viewModel.selectServer(it) },
-            )
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (state.servers.isEmpty()) {
+                SearchingContent()
+            } else if (wide) {
+                ServerGrid(
+                    servers = state.servers,
+                    onSelect = { viewModel.selectServer(it) },
+                )
+            } else {
+                ServerList(
+                    servers = state.servers,
+                    onSelect = { viewModel.selectServer(it) },
+                )
+            }
         }
-        AppVersionFooter(
-            onOpenAbout = onOpenAbout,
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
+        if (state.servers.isNotEmpty()) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        }
+        AppVersionFooter(onOpenAbout = onOpenAbout)
     }
 
     UpdateDialogs(
@@ -133,27 +154,99 @@ private fun SearchingContent() {
     val composition by rememberLottieComposition(
         LottieCompositionSpec.RawRes(R.raw.search_radar),
     )
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+    val hints = listOf(
+        R.string.discovery_hint_pc,
+        R.string.discovery_hint_wifi,
+    )
+    var showHints by rememberSaveable { mutableStateOf(false) }
+    var hintsStartedAt by rememberSaveable { mutableLongStateOf(0L) }
+    LaunchedEffect(showHints) {
+        if (showHints) return@LaunchedEffect
+        if (hintsStartedAt == 0L) hintsStartedAt = SystemClock.elapsedRealtime()
+        val remaining = HintRevealDelayMillis - (SystemClock.elapsedRealtime() - hintsStartedAt)
+        if (remaining > 0) delay(remaining)
+        showHints = true
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .align(Alignment.TopCenter)
+                .widthIn(max = 440.dp)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = maxHeight)
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .size(168.dp)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape),
+                )
+                LottieAnimation(
+                    composition = composition,
+                    iterations = LottieConstants.IterateForever,
+                    modifier = Modifier.size(200.dp),
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+            Text(
+                text = stringResource(R.string.discovery_searching),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center,
+            )
+            AnimatedVisibility(
+                visible = showHints,
+                enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+            ) {
+                Column(Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.height(20.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(
+                                text = stringResource(R.string.discovery_hints_title),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                hints.forEach { hint ->
+                                    HintRow(text = stringResource(hint))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HintRow(text: String) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        LottieAnimation(
-            composition = composition,
-            iterations = LottieConstants.IterateForever,
-            modifier = Modifier.size(200.dp),
+        Box(
+            Modifier
+                .size(6.dp)
+                .background(MaterialTheme.colorScheme.primary, CircleShape),
         )
         Text(
-            text = stringResource(R.string.discovery_searching),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Text(
-            text = stringResource(R.string.discovery_hint),
-            modifier = Modifier.padding(top = 8.dp),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = text,
+            modifier = Modifier.padding(start = 12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -169,7 +262,7 @@ private fun ServerList(
             style = MaterialTheme.typography.headlineSmall,
         )
         LazyColumn(
-            contentPadding = PaddingValues(top = 12.dp, bottom = 64.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(servers, key = { it.key }) { server ->
@@ -191,7 +284,7 @@ private fun ServerGrid(
         )
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 280.dp),
-            contentPadding = PaddingValues(top = 12.dp, bottom = 64.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -241,36 +334,28 @@ private fun AppVersionFooter(
 ) {
     val context = LocalContext.current
     val version = remember(context) { readAppVersionName(context) }
-    val prefix = stringResource(R.string.discovery_footer_version, version)
-    val about = stringResource(R.string.about_developer)
-    val linkColor = MaterialTheme.colorScheme.primary
-    val label = buildAnnotatedString {
-        append(prefix)
-        withLink(
-            LinkAnnotation.Clickable(
-                tag = "about_developer",
-                styles = TextLinkStyles(
-                    style = SpanStyle(
-                        color = linkColor,
-                        textDecoration = TextDecoration.Underline,
-                    ),
-                ),
-                linkInteractionListener = { onOpenAbout() },
-            ),
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.discovery_footer_version, version),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(
+            onClick = onOpenAbout,
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            append(about)
+            Text(
+                text = stringResource(R.string.about_developer),
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
-    Text(
-        text = label,
-        modifier = modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center,
-    )
 }
 
 @Composable
