@@ -86,6 +86,11 @@ class NsdServerDiscovery(context: Context) {
         startEmulatorProbe()
     }
 
+    fun onLocalNetworkPermissionGranted() {
+        if (!wanted.get()) return
+        beginDiscovery()
+    }
+
     fun stop() {
         if (!wanted.compareAndSet(true, false)) return
         mainHandler.removeCallbacks(refreshRunnable)
@@ -117,6 +122,10 @@ class NsdServerDiscovery(context: Context) {
 
     private fun beginDiscovery() {
         if (!wanted.get()) return
+        if (!LocalNetworkAccess.isGranted(appContext)) {
+            Log.d(TAG, "Skip NSD until local network permission is granted")
+            return
+        }
         if (!discovering.compareAndSet(false, true)) return
         unresolvedNames.clear()
 

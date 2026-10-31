@@ -1,6 +1,9 @@
 package com.alex.aceshare.ui.discovery
 
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,6 +38,7 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.alex.aceshare.R
 import com.alex.aceshare.data.DiscoveredServer
+import com.alex.aceshare.discovery.LocalNetworkAccess
 import com.alex.aceshare.ui.components.FocusableButton
 import com.alex.aceshare.ui.components.ServerCard
 import com.alex.aceshare.ui.theme.TvBackground
@@ -50,9 +55,25 @@ fun DiscoveryScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val updateState by viewModel.updateUiState.collectAsStateWithLifecycle()
 
+    val context = LocalContext.current
+    val localNetworkPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) viewModel.onLocalNetworkPermissionGranted()
+    }
+
     DisposableEffect(Unit) {
         viewModel.onStart()
         onDispose { viewModel.onStop() }
+    }
+
+    LaunchedEffect(Unit) {
+        val permission = LocalNetworkAccess.permissionToRequest()
+        if (permission != null &&
+            context.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED
+        ) {
+            localNetworkPermission.launch(permission)
+        }
     }
 
     LaunchedEffect(Unit) {

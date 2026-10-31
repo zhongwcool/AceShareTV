@@ -1,5 +1,8 @@
 package com.alex.aceshare.mobile.ui.discovery
 
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +51,7 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.alex.aceshare.data.DiscoveredServer
+import com.alex.aceshare.discovery.LocalNetworkAccess
 import com.alex.aceshare.mobile.R
 import com.alex.aceshare.mobile.ui.about.readAppVersionName
 import com.alex.aceshare.ui.discovery.DiscoveryViewModel
@@ -66,9 +70,25 @@ fun DiscoveryScreen(
         WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
     )
 
+    val context = LocalContext.current
+    val localNetworkPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) viewModel.onLocalNetworkPermissionGranted()
+    }
+
     DisposableEffect(Unit) {
         viewModel.onStart()
         onDispose { viewModel.onStop() }
+    }
+
+    LaunchedEffect(Unit) {
+        val permission = LocalNetworkAccess.permissionToRequest()
+        if (permission != null &&
+            context.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED
+        ) {
+            localNetworkPermission.launch(permission)
+        }
     }
 
     LaunchedEffect(Unit) {

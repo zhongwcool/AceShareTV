@@ -107,6 +107,10 @@ class DiscoveryViewModel(
         checkForUpdateIfNeeded()
     }
 
+    fun onLocalNetworkPermissionGranted() {
+        discovery.onLocalNetworkPermissionGranted()
+    }
+
     fun onStop() {
         discovery.stop()
     }
