@@ -8,9 +8,16 @@ sealed interface ReleaseNoteBlock {
     data class Paragraph(override val text: String) : ReleaseNoteBlock
 }
 
+enum class ReleaseNoteAudience {
+    All,
+    Tv,
+    Mobile,
+}
+
 fun parseReleaseNotes(
     markdown: String,
     displayedVersion: String? = null,
+    audience: ReleaseNoteAudience = ReleaseNoteAudience.All,
 ): List<ReleaseNoteBlock> {
     val blocks = mutableListOf<ReleaseNoteBlock>()
     val paragraph = StringBuilder()
@@ -100,7 +107,56 @@ fun parseReleaseNotes(
         lastWasBlank = false
     }
     flushParagraph()
-    return blocks
+    return filterForAudience(blocks, audience)
+}
+
+private enum class NoteSection {
+    Shared,
+    Tv,
+    Mobile,
+}
+
+private fun filterForAudience(
+    blocks: List<ReleaseNoteBlock>,
+    audience: ReleaseNoteAudience,
+): List<ReleaseNoteBlock> {
+    if (audience == ReleaseNoteAudience.All) return blocks
+    val hasPlatformHeading = blocks.any { block ->
+        block is ReleaseNoteBlock.Heading && platformSection(block.text) != null
+    }
+    if (!hasPlatformHeading) return blocks
+
+    val kept = mutableListOf<ReleaseNoteBlock>()
+    var section = NoteSection.Shared
+    for (block in blocks) {
+        if (block is ReleaseNoteBlock.Heading) {
+            val platform = platformSection(block.text)
+            if (platform != null) {
+                section = platform
+                continue
+            }
+        }
+        if (section == NoteSection.Shared || section.matches(audience)) {
+            kept += block
+        }
+    }
+    return kept
+}
+
+private fun NoteSection.matches(audience: ReleaseNoteAudience): Boolean = when (audience) {
+    ReleaseNoteAudience.All -> true
+    ReleaseNoteAudience.Tv -> this == NoteSection.Tv
+    ReleaseNoteAudience.Mobile -> this == NoteSection.Mobile
+}
+
+private fun platformSection(heading: String): NoteSection? {
+    val key = heading.trim().trimEnd(':', '：').trim().lowercase()
+    return when (key) {
+        "电视端", "电视", "tv", "android tv", "tv端" -> NoteSection.Tv
+        "手机端", "手机", "mobile" -> NoteSection.Mobile
+        "通用", "两端", "共用", "电视和手机", "手机和电视", "电视、手机", "手机、电视" -> NoteSection.Shared
+        else -> null
+    }
 }
 
 private fun headingText(line: String): String? {

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.alex.aceshare.data.update.ReleaseNoteAudience
 import com.alex.aceshare.data.update.ReleaseNoteBlock
 import com.alex.aceshare.data.update.parseReleaseNotes
 import com.alex.aceshare.mobile.R
@@ -57,7 +58,11 @@ internal fun UpdateAvailableDialog(
     onDismiss: () -> Unit,
 ) {
     val blocks = remember(releaseNotes, versionName) {
-        parseReleaseNotes(releaseNotes, displayedVersion = versionName)
+        parseReleaseNotes(
+            releaseNotes,
+            displayedVersion = versionName,
+            audience = ReleaseNoteAudience.Mobile,
+        )
     }
     val versionDescription = stringResource(
         R.string.update_message,

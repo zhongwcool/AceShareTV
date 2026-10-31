@@ -49,6 +49,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.alex.aceshare.R
 import com.alex.aceshare.data.update.AppUpdateInfo
+import com.alex.aceshare.data.update.ReleaseNoteAudience
 import com.alex.aceshare.data.update.ReleaseNoteBlock
 import com.alex.aceshare.data.update.parseReleaseNotes
 import com.alex.aceshare.ui.components.FocusableButton
@@ -71,7 +72,11 @@ internal fun UpdateAvailableDialog(
     onDismiss: () -> Unit,
 ) {
     val blocks = remember(info.releaseNotes, info.versionName) {
-        parseReleaseNotes(info.releaseNotes, displayedVersion = info.versionName)
+        parseReleaseNotes(
+            info.releaseNotes,
+            displayedVersion = info.versionName,
+            audience = ReleaseNoteAudience.Tv,
+        )
     }
     val versionDescription = stringResource(
         R.string.update_message,

@@ -125,4 +125,66 @@ class ReleaseNotesTest {
     fun parseReleaseNotes_blankInputIsEmpty() {
         assertEquals(emptyList<ReleaseNoteBlock>(), parseReleaseNotes("  \n\n"))
     }
+
+    @Test
+    fun parseReleaseNotes_keepsOnlyTheRequestedPlatform() {
+        val notes = """
+            两端都会用到的说明。
+
+            ## 电视端
+
+            **Bug Fixes**
+
+            - 遥控器可以翻阅更新说明。
+
+            ## 手机端
+
+            **Features**
+
+            - 发现页底部显示当前版本号。
+
+            **Bug Fixes**
+
+            - 下载进度不再挡住页面。
+
+            ## 通用
+
+            - 修复权限申请后的发现。
+        """.trimIndent()
+
+        assertEquals(
+            listOf(
+                ReleaseNoteBlock.Paragraph("两端都会用到的说明。"),
+                ReleaseNoteBlock.Heading("Bug Fixes"),
+                ReleaseNoteBlock.Bullet("遥控器可以翻阅更新说明。"),
+                ReleaseNoteBlock.Bullet("修复权限申请后的发现。"),
+            ),
+            parseReleaseNotes(notes, audience = ReleaseNoteAudience.Tv),
+        )
+        assertEquals(
+            listOf(
+                ReleaseNoteBlock.Paragraph("两端都会用到的说明。"),
+                ReleaseNoteBlock.Heading("Features"),
+                ReleaseNoteBlock.Bullet("发现页底部显示当前版本号。"),
+                ReleaseNoteBlock.Heading("Bug Fixes"),
+                ReleaseNoteBlock.Bullet("下载进度不再挡住页面。"),
+                ReleaseNoteBlock.Bullet("修复权限申请后的发现。"),
+            ),
+            parseReleaseNotes(notes, audience = ReleaseNoteAudience.Mobile),
+        )
+    }
+
+    @Test
+    fun parseReleaseNotes_showsEverythingWhenNoPlatformHeading() {
+        val notes = """
+            **Bug Fixes**
+
+            - 修复预览被当成下载。
+        """.trimIndent()
+
+        assertEquals(
+            parseReleaseNotes(notes),
+            parseReleaseNotes(notes, audience = ReleaseNoteAudience.Tv),
+        )
+    }
 }
