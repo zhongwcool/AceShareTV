@@ -13,9 +13,9 @@ android {
         applicationId = "com.alex.aceshare"
         minSdk = 25
         targetSdk = 37
-        val versionCodeBase = (findProperty("VERSION_CODE_BASE") as String?)?.toIntOrNull() ?: 10100
+        val versionCodeBase = (findProperty("VERSION_CODE_BASE") as String?)?.toIntOrNull() ?: 10200
         versionCode = versionCodeBase * 10 + 1
-        versionName = (findProperty("VERSION_NAME") as String?) ?: "1.1.0"
+        versionName = (findProperty("VERSION_NAME") as String?) ?: "1.2.0"
     }
 
     flavorDimensions += "distribution"

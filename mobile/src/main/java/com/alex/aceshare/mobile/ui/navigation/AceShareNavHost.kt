@@ -11,6 +11,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.alex.aceshare.data.DiscoveredServer
 import com.alex.aceshare.mobile.MobileApp
+import com.alex.aceshare.mobile.ui.about.AboutScreen
 import com.alex.aceshare.mobile.ui.browse.BrowseScreen
 import com.alex.aceshare.mobile.ui.discovery.DiscoveryScreen
 import com.alex.aceshare.ui.browse.BrowseViewModel
@@ -18,6 +19,7 @@ import com.alex.aceshare.ui.discovery.DiscoveryViewModel
 
 private object Routes {
     const val Discovery = "discovery"
+    const val About = "about"
     const val Browse = "browse/{host}/{port}/{name}"
 
     fun browse(server: DiscoveredServer): String {
@@ -51,7 +53,15 @@ fun AceShareNavHost() {
                         launchSingleTop = true
                     }
                 },
+                onOpenAbout = {
+                    navController.navigate(Routes.About) {
+                        launchSingleTop = true
+                    }
+                },
             )
+        }
+        composable(Routes.About) {
+            AboutScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.Browse,

@@ -1,5 +1,6 @@
 package com.alex.aceshare.mobile.ui.discovery
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,10 +28,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,6 +51,7 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.alex.aceshare.data.DiscoveredServer
 import com.alex.aceshare.mobile.R
+import com.alex.aceshare.mobile.ui.about.readAppVersionName
 import com.alex.aceshare.ui.discovery.DiscoveryViewModel
 import com.alex.aceshare.ui.discovery.UpdateError
 import com.alex.aceshare.ui.discovery.UpdateUiState
@@ -49,6 +60,7 @@ import com.alex.aceshare.ui.discovery.UpdateUiState
 fun DiscoveryScreen(
     viewModel: DiscoveryViewModel,
     onServerSelected: (DiscoveredServer) -> Unit,
+    onOpenAbout: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val updateState by viewModel.updateUiState.collectAsStateWithLifecycle()
@@ -85,6 +97,10 @@ fun DiscoveryScreen(
                 onSelect = { viewModel.selectServer(it) },
             )
         }
+        AppVersionFooter(
+            onOpenAbout = onOpenAbout,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 
     UpdateDialogs(
@@ -135,7 +151,7 @@ private fun ServerList(
             style = MaterialTheme.typography.headlineSmall,
         )
         LazyColumn(
-            contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 64.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(servers, key = { it.key }) { server ->
@@ -157,7 +173,7 @@ private fun ServerGrid(
         )
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 280.dp),
-            contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 64.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -198,6 +214,45 @@ private fun ServerCard(
             }
         }
     }
+}
+
+@Composable
+private fun AppVersionFooter(
+    onOpenAbout: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val version = remember(context) { readAppVersionName(context) }
+    val prefix = stringResource(R.string.discovery_footer_version, version)
+    val about = stringResource(R.string.about_developer)
+    val linkColor = MaterialTheme.colorScheme.primary
+    val label = buildAnnotatedString {
+        append(prefix)
+        withLink(
+            LinkAnnotation.Clickable(
+                tag = "about_developer",
+                styles = TextLinkStyles(
+                    style = SpanStyle(
+                        color = linkColor,
+                        textDecoration = TextDecoration.Underline,
+                    ),
+                ),
+                linkInteractionListener = { onOpenAbout() },
+            ),
+        ) {
+            append(about)
+        }
+    }
+    Text(
+        text = label,
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
 }
 
 @Composable
