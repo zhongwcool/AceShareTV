@@ -1,14 +1,14 @@
 package com.alex.aceshare.mobile.ui.discovery
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
-import android.os.SystemClock
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -32,14 +32,11 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -47,18 +44,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.airbnb.lottie.compose.LottieAnimation
@@ -72,9 +69,11 @@ import com.alex.aceshare.mobile.ui.about.readAppVersionName
 import com.alex.aceshare.ui.discovery.DiscoveryViewModel
 import com.alex.aceshare.ui.discovery.UpdateError
 import com.alex.aceshare.ui.discovery.UpdateUiState
-import kotlinx.coroutines.delay
 
-private const val HintRevealDelayMillis = 10_000L
+private val SearchBackground = Color(0xFF0D1117)
+private val SearchTextPrimary = Color(0xFFF0F6FC)
+private val SearchTextSecondary = Color(0xFF8B949E)
+private val SearchAccent = Color(0xFF58A6FF)
 
 @Composable
 fun DiscoveryScreen(
@@ -115,15 +114,18 @@ fun DiscoveryScreen(
         }
     }
 
+    val searching = state.servers.isEmpty()
+    SearchingSystemBars(enabled = searching)
+
     Column(
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(if (searching) SearchBackground else MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (state.servers.isEmpty()) {
-                SearchingContent()
+            if (searching) {
+                SearchingContent(wide = wide)
             } else if (wide) {
                 ServerGrid(
                     servers = state.servers,
@@ -136,10 +138,10 @@ fun DiscoveryScreen(
                 )
             }
         }
-        if (state.servers.isNotEmpty()) {
+        if (!searching) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
         }
-        AppVersionFooter(onOpenAbout = onOpenAbout)
+        AppVersionFooter(onOpenAbout = onOpenAbout, onDark = searching)
     }
 
     UpdateDialogs(
@@ -150,105 +152,100 @@ fun DiscoveryScreen(
 }
 
 @Composable
-private fun SearchingContent() {
+private fun SearchingContent(wide: Boolean) {
     val composition by rememberLottieComposition(
         LottieCompositionSpec.RawRes(R.raw.search_radar),
     )
-    val hints = listOf(
-        R.string.discovery_hint_pc,
-        R.string.discovery_hint_wifi,
-    )
-    var showHints by rememberSaveable { mutableStateOf(false) }
-    var hintsStartedAt by rememberSaveable { mutableLongStateOf(0L) }
-    LaunchedEffect(showHints) {
-        if (showHints) return@LaunchedEffect
-        if (hintsStartedAt == 0L) hintsStartedAt = SystemClock.elapsedRealtime()
-        val remaining = HintRevealDelayMillis - (SystemClock.elapsedRealtime() - hintsStartedAt)
-        if (remaining > 0) delay(remaining)
-        showHints = true
-    }
+    val titleSize = if (wide) 32.sp else 22.sp
+    val hintSize = if (wide) 20.sp else 15.sp
     BoxWithConstraints(Modifier.fillMaxSize()) {
+        val preferredArt = if (wide) 280.dp else 220.dp
+        val artCap = maxHeight * 0.46f
+        val artSize = if (preferredArt < artCap) preferredArt else artCap
         Column(
             Modifier
                 .align(Alignment.TopCenter)
-                .widthIn(max = 440.dp)
+                .widthIn(max = if (wide) 720.dp else 480.dp)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .heightIn(min = maxHeight)
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = if (wide) 48.dp else 32.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Box(
-                    Modifier
-                        .size(168.dp)
-                        .background(MaterialTheme.colorScheme.surface, CircleShape),
-                )
-                LottieAnimation(
-                    composition = composition,
-                    iterations = LottieConstants.IterateForever,
-                    modifier = Modifier.size(200.dp),
-                )
-            }
-            Spacer(Modifier.height(20.dp))
+            LottieAnimation(
+                composition = composition,
+                iterations = LottieConstants.IterateForever,
+                modifier = Modifier.size(artSize),
+            )
+            Spacer(Modifier.height(if (wide) 24.dp else 20.dp))
             Text(
                 text = stringResource(R.string.discovery_searching),
                 modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontSize = titleSize,
+                    lineHeight = if (wide) 40.sp else 30.sp,
+                ),
+                color = SearchTextPrimary,
                 textAlign = TextAlign.Center,
             )
-            AnimatedVisibility(
-                visible = showHints,
-                enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-            ) {
-                Column(Modifier.fillMaxWidth()) {
-                    Spacer(Modifier.height(20.dp))
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(
-                                text = stringResource(R.string.discovery_hints_title),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                hints.forEach { hint ->
-                                    HintRow(text = stringResource(hint))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            Spacer(Modifier.height(if (wide) 12.dp else 10.dp))
+            Text(
+                text = stringResource(R.string.discovery_hint),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = hintSize,
+                    lineHeight = if (wide) 28.sp else 22.sp,
+                ),
+                color = SearchTextSecondary,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
 
 @Composable
-private fun HintRow(text: String) {
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier
-                .size(6.dp)
-                .background(MaterialTheme.colorScheme.primary, CircleShape),
-        )
-        Text(
-            text = text,
-            modifier = Modifier.padding(start = 12.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+private fun SearchingSystemBars(enabled: Boolean) {
+    val view = LocalView.current
+    val systemDark = isSystemInDarkTheme()
+    DisposableEffect(enabled, systemDark) {
+        val activity = view.context.findActivity() ?: return@DisposableEffect onDispose {}
+        val window = activity.window
+        val controller = WindowCompat.getInsetsController(window, view)
+        val previousStatusColor = window.statusBarColor
+        val previousNavColor = window.navigationBarColor
+        val previousStatusContrast =
+            if (Build.VERSION.SDK_INT >= 29) window.isStatusBarContrastEnforced else null
+        val previousNavContrast =
+            if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced else null
+        if (enabled) {
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            if (Build.VERSION.SDK_INT >= 29) {
+                window.isStatusBarContrastEnforced = false
+                window.isNavigationBarContrastEnforced = false
+            }
+        }
+        val lightBars = !enabled && !systemDark
+        controller.isAppearanceLightStatusBars = lightBars
+        controller.isAppearanceLightNavigationBars = lightBars
+        onDispose {
+            window.statusBarColor = previousStatusColor
+            window.navigationBarColor = previousNavColor
+            if (Build.VERSION.SDK_INT >= 29) {
+                previousStatusContrast?.let { window.isStatusBarContrastEnforced = it }
+                previousNavContrast?.let { window.isNavigationBarContrastEnforced = it }
+            }
+            controller.isAppearanceLightStatusBars = !systemDark
+            controller.isAppearanceLightNavigationBars = !systemDark
+        }
     }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @Composable
@@ -330,6 +327,7 @@ private fun ServerCard(
 @Composable
 private fun AppVersionFooter(
     onOpenAbout: () -> Unit,
+    onDark: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -344,7 +342,7 @@ private fun AppVersionFooter(
         Text(
             text = stringResource(R.string.discovery_footer_version, version),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (onDark) SearchTextSecondary else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         TextButton(
             onClick = onOpenAbout,
@@ -353,6 +351,7 @@ private fun AppVersionFooter(
             Text(
                 text = stringResource(R.string.about_developer),
                 style = MaterialTheme.typography.bodyMedium,
+                color = if (onDark) SearchAccent else Color.Unspecified,
             )
         }
     }
