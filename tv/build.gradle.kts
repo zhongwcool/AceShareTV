@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.tv.foundation)
     implementation(libs.androidx.tv.material)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.lottie.compose)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

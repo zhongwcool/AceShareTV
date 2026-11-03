@@ -80,6 +80,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.alex.aceshare.data.BrowseContentState
 import com.alex.aceshare.data.DiscoveredServer
+import com.alex.aceshare.data.FileKinds
 import com.alex.aceshare.data.ListResponse
 import com.alex.aceshare.data.TextItem
 import com.alex.aceshare.mobile.R
@@ -102,6 +103,12 @@ fun BrowseScreen(
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var showSwitchSource by rememberSaveable { mutableStateOf(false) }
     var downloadFile by rememberSaveable { mutableStateOf<String?>(null) }
+    var previewFile by rememberSaveable { mutableStateOf<String?>(null) }
+    val previewRevision by viewModel.previewRevision.collectAsStateWithLifecycle()
+    val mediaDurations by viewModel.mediaDurations.collectAsStateWithLifecycle()
+    val pendingDeleted by viewModel.pendingDeletedFiles.collectAsStateWithLifecycle()
+    val undoDelete by viewModel.undoDelete.collectAsStateWithLifecycle()
+    val deleteError by viewModel.deleteError.collectAsStateWithLifecycle()
     var showNoPicker by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
     val navigator = rememberListDetailPaneScaffoldNavigator<String>()
@@ -152,9 +159,30 @@ fun BrowseScreen(
     }
     val detailBack = selectedTab == BrowseTab.Texts.ordinal && navigator.canNavigateBack()
     val overlay = downloadFile != null ||
+        previewFile != null ||
         showSwitchSource ||
         showNoPicker ||
         upload !is UploadUiState.Idle
+
+    val deleteFile: (String) -> Unit = { name ->
+        if (previewFile == name) previewFile = null
+        if (downloadFile == name) downloadFile = null
+        viewModel.deleteFile(name)
+    }
+    LaunchedEffect(deleteError) {
+        val message = deleteError ?: return@LaunchedEffect
+        snackbarHostState.currentSnackbarData?.dismiss()
+        snackbarHostState.showSnackbar(message)
+        viewModel.dismissDeleteError()
+    }
+
+    LaunchedEffect(content, previewFile) {
+        val name = previewFile ?: return@LaunchedEffect
+        val ready = content as? BrowseContentState.Ready ?: return@LaunchedEffect
+        if (name !in ready.data.files || FileKinds.previewOf(name) == null) {
+            previewFile = null
+        }
+    }
 
     LaunchedEffect(refreshing, content) {
         if (refreshing && content !is BrowseContentState.Loading && content !is BrowseContentState.Idle) {
@@ -169,6 +197,7 @@ fun BrowseScreen(
             upload !is UploadUiState.Idle -> viewModel.dismissUploadResult()
             showNoPicker -> showNoPicker = false
             downloadFile != null -> downloadFile = null
+            previewFile != null -> previewFile = null
             showSwitchSource -> showSwitchSource = false
             detailBack -> scope.launch { navigator.navigateBack() }
         }
@@ -205,11 +234,44 @@ fun BrowseScreen(
     ) {
         Scaffold(
             snackbarHost = {
-                SnackbarHost(snackbarHostState) { data ->
-                    Snackbar(Modifier.padding(12.dp)) {
+                val pendingUndo = undoDelete
+            if (pendingUndo != null) {
+                Snackbar(
+                    modifier = Modifier.padding(12.dp),
+                    action = {
+                        TextButton(onClick = { viewModel.undoDeleteFile(pendingUndo.name) }) {
+                            Text(stringResource(R.string.file_delete_undo))
+                        }
+                    },
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.file_deleted,
+                            pendingUndo.name,
+                            pendingUndo.secondsLeft,
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            SnackbarHost(snackbarHostState) { data ->
+                    val actionLabel = data.visuals.actionLabel
+                    Snackbar(
+                        modifier = Modifier.padding(12.dp),
+                        action = if (actionLabel == null) {
+                            null
+                        } else {
+                            {
+                                TextButton(onClick = { data.performAction() }) {
+                                    Text(actionLabel)
+                                }
+                            }
+                        },
+                    ) {
                         Text(
                             text = data.visuals.message,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -325,9 +387,16 @@ fun BrowseScreen(
                                 onCopy = onCopy,
                             )
                             BrowseTab.Files -> FilesPanel(
-                                data = state.data,
-                                wide = wide,
-                                onOpen = { downloadFile = it },
+                                data = state.data.copy(
+                                    files = state.data.files.filter { it !in pendingDeleted },
+                                ),
+                                previewRevision = previewRevision,
+                                onDownload = { downloadFile = it },
+                                onPreview = { previewFile = it },
+                                onDelete = deleteFile,
+                                durations = mediaDurations,
+                                loadImage = viewModel::loadPreviewBitmap,
+                                loadDuration = viewModel::loadMediaDuration,
                             )
                         }
                     }
@@ -363,8 +432,23 @@ fun BrowseScreen(
         }
     }
 
+    previewFile?.let { name ->
+        FilePreviewDialog(
+            name = name,
+            inlineUrl = viewModel.inlineFileUrl(name),
+            previewRevision = previewRevision,
+            stamp = (content as? BrowseContentState.Ready)?.data?.stampOf(name).orEmpty(),
+            loadImage = viewModel::loadPreviewBitmap,
+            loadText = viewModel::loadTextPreview,
+            downloadFile = viewModel::downloadPreviewFile,
+            onDownload = { downloadFile = name },
+            onDelete = { deleteFile(name) },
+            onDismiss = { previewFile = null },
+        )
+    }
+
     downloadFile?.let { name ->
-        val url = "${current.baseUrl}/files/${Uri.encode(name)}"
+        val url = viewModel.downloadFileUrl(name)
         AlertDialog(
             onDismissRequest = { downloadFile = null },
             title = { Text(stringResource(R.string.download_title)) },
@@ -449,7 +533,7 @@ private fun LinesPanel(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             gridItems(data.lines, key = { "${it.title}|${it.text}" }) { item ->
-                TextCard(item = item, onClick = { onCopy(item) })
+                TextCard(item = item, singleLine = true, onClick = { onCopy(item) })
             }
         }
     } else {
@@ -458,7 +542,7 @@ private fun LinesPanel(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(data.lines, key = { "${it.title}|${it.text}" }) { item ->
-                TextCard(item = item, onClick = { onCopy(item) })
+                TextCard(item = item, singleLine = true, onClick = { onCopy(item) })
             }
         }
     }
@@ -506,50 +590,10 @@ private fun TextsPanel(
 }
 
 @Composable
-private fun FilesPanel(
-    data: ListResponse,
-    wide: Boolean,
-    onOpen: (String) -> Unit,
-) {
-    Column(Modifier.fillMaxSize()) {
-        Text(
-            text = stringResource(R.string.upload_hint),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (data.files.isEmpty()) {
-            EmptyText(stringResource(R.string.browse_empty_files))
-            return
-        }
-        if (wide) {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 240.dp),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 88.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                gridItems(data.files, key = { it }) { name ->
-                    FileCard(name = name, onClick = { onOpen(name) })
-                }
-            }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(data.files, key = { it }) { name ->
-                    FileCard(name = name, onClick = { onOpen(name) })
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun TextCard(
     item: TextItem,
     onClick: () -> Unit,
+    singleLine: Boolean = false,
 ) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
@@ -566,24 +610,11 @@ private fun TextCard(
                 text = item.text.replace('\n', ' '),
                 modifier = Modifier.padding(top = if (item.title.isNotBlank()) 4.dp else 0.dp),
                 style = MaterialTheme.typography.bodyLarge,
-                maxLines = 2,
+                maxLines = if (singleLine) 1 else 2,
+                softWrap = !singleLine,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-    }
-}
-
-@Composable
-private fun FileCard(
-    name: String,
-    onClick: () -> Unit,
-) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = name,
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.bodyLarge,
-        )
     }
 }
 
@@ -618,7 +649,7 @@ private fun TextDetail(
 }
 
 @Composable
-private fun EmptyText(message: String) {
+internal fun EmptyText(message: String) {
     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Text(
             text = message,

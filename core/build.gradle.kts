@@ -27,5 +27,7 @@ dependencies {
     implementation(libs.okhttp.sse)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.exifinterface)
+    implementation(libs.androidsvg)
     testImplementation(libs.junit)
 }

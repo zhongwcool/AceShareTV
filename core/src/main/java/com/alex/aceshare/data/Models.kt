@@ -9,11 +9,26 @@ data class TextItem(
 )
 
 @Serializable
+data class FileMeta(
+    val name: String,
+    val size: Long = -1,
+    val mtime: Long = 0,
+)
+
+/** Changes when the file is replaced; empty when the server does not send fileMeta. */
+fun FileMeta?.stamp(): String = if (this == null) "" else "$size:$mtime"
+
+fun previewKey(name: String, stamp: String): String = "$stamp|$name"
+
+@Serializable
 data class ListResponse(
     val files: List<String> = emptyList(),
+    val fileMeta: List<FileMeta> = emptyList(),
     val lines: List<TextItem> = emptyList(),
     val texts: List<TextItem> = emptyList(),
-)
+) {
+    fun stampOf(name: String): String = fileMeta.firstOrNull { it.name == name }.stamp()
+}
 
 @Serializable
 data class VersionResponse(

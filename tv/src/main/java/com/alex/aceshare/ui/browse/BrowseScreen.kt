@@ -53,9 +53,11 @@ import androidx.tv.material3.Text
 import com.alex.aceshare.R
 import com.alex.aceshare.data.BrowseContentState
 import com.alex.aceshare.data.DiscoveredServer
+import com.alex.aceshare.data.FileKinds
 import com.alex.aceshare.data.ListResponse
 import com.alex.aceshare.data.TextItem
 import com.alex.aceshare.ui.theme.TvPrimary
+import com.alex.aceshare.ui.theme.TvSurface
 import com.alex.aceshare.ui.theme.TvSurfaceFocused
 import com.alex.aceshare.ui.components.FocusableButton
 import com.alex.aceshare.ui.components.FocusableCard
@@ -83,6 +85,13 @@ fun BrowseScreen(
     var showSwitchSource by remember { mutableStateOf(false) }
     var textDetail by remember { mutableStateOf<TextItem?>(null) }
     var downloadFile by remember { mutableStateOf<String?>(null) }
+    var previewFile by remember { mutableStateOf<String?>(null) }
+    val previewRevision by viewModel.previewRevision.collectAsStateWithLifecycle()
+    val mediaDurations by viewModel.mediaDurations.collectAsStateWithLifecycle()
+    val pendingDeleted by viewModel.pendingDeletedFiles.collectAsStateWithLifecycle()
+    val undoDelete by viewModel.undoDelete.collectAsStateWithLifecycle()
+    val deleteError by viewModel.deleteError.collectAsStateWithLifecycle()
+    val undoFocus = remember { FocusRequester() }
     var restoreFileFocus by remember { mutableStateOf<String?>(null) }
     var showNoPicker by remember { mutableStateOf(false) }
     var restoreUploadFocus by remember { mutableStateOf(false) }
@@ -100,9 +109,19 @@ fun BrowseScreen(
         if (uris.isNotEmpty()) viewModel.upload(uris)
     }
     val dismissDownloadDialog = {
-        restoreFileFocus = downloadFile
+        if (previewFile == null) restoreFileFocus = downloadFile
         downloadFile = null
     }
+    val closePreview = {
+        restoreFileFocus = previewFile
+        previewFile = null
+    }
+    val deleteFile: (String) -> Unit = { name ->
+        if (previewFile == name) closePreview()
+        if (downloadFile == name) downloadFile = null
+        viewModel.deleteFile(name)
+    }
+    val undoName = undoDelete?.name
     val pickFiles = {
         if (upload is UploadUiState.Idle && !showNoPicker) {
             try {
@@ -121,8 +140,30 @@ fun BrowseScreen(
         }
     }
     val blockBackgroundFocus = downloadFile != null ||
+        previewFile != null ||
         showNoPicker ||
         upload !is UploadUiState.Idle
+
+    LaunchedEffect(undoName) {
+        if (undoName == null) return@LaunchedEffect
+        if (!undoFocus.requestFocus()) {
+            withFrameNanos { }
+            undoFocus.requestFocus()
+        }
+    }
+    LaunchedEffect(deleteError) {
+        val message = deleteError ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.dismissDeleteError()
+    }
+
+    LaunchedEffect(content, previewFile) {
+        val name = previewFile ?: return@LaunchedEffect
+        val ready = content as? BrowseContentState.Ready ?: return@LaunchedEffect
+        if (name !in ready.data.files || FileKinds.previewOf(name) == null) {
+            previewFile = null
+        }
+    }
 
     LaunchedEffect(upload) {
         val visible = upload !is UploadUiState.Idle
@@ -141,6 +182,7 @@ fun BrowseScreen(
                 showNoPicker = false
             }
             downloadFile != null -> dismissDownloadDialog()
+            previewFile != null -> closePreview()
             textDetail != null -> textDetail = null
             showSwitchSource -> showSwitchSource = false
             else -> onBackToDiscovery()
@@ -152,10 +194,21 @@ fun BrowseScreen(
             .fillMaxSize()
             .background(TvBackground),
     ) {
+        val uploadFocus = remember { FocusRequester() }
+        val showUpload = selectedTab == BrowseTab.Files.ordinal && content is BrowseContentState.Ready
+        LaunchedEffect(restoreUploadFocus, showUpload) {
+            if (!restoreUploadFocus) return@LaunchedEffect
+            if (showUpload) {
+                uploadFocus.requestFocus()
+                withFrameNanos { }
+                uploadFocus.requestFocus()
+            }
+            restoreUploadFocus = false
+        }
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = 40.dp, vertical = 28.dp)
+                .padding(horizontal = 32.dp, vertical = 12.dp)
                 .focusProperties {
                     if (blockBackgroundFocus) canFocus = false
                 },
@@ -164,25 +217,44 @@ fun BrowseScreen(
                 server = current,
                 onClick = { showSwitchSource = true },
             )
-            Spacer(Modifier.height(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 TabChip(
                     label = stringResource(R.string.browse_tab_lines),
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                 )
+                Spacer(Modifier.width(12.dp))
                 TabChip(
                     label = stringResource(R.string.browse_tab_texts),
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                 )
+                Spacer(Modifier.width(12.dp))
                 TabChip(
                     label = stringResource(R.string.browse_tab_files),
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                 )
+                Spacer(Modifier.weight(1f))
+                if (showUpload) {
+                    Text(
+                        text = stringResource(R.string.upload_hint),
+                        color = TvTextSecondary,
+                        fontSize = 16.sp,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    FocusableButton(
+                        label = stringResource(R.string.upload_action),
+                        onClick = pickFiles,
+                        compact = true,
+                        rootModifier = Modifier.focusRequester(uploadFocus),
+                    )
+                }
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(4.dp))
 
             when (val state = content) {
                 BrowseContentState.Idle, BrowseContentState.Loading -> {
@@ -224,16 +296,49 @@ fun BrowseScreen(
                             onOpen = { textDetail = it },
                         )
                         BrowseTab.Files -> FilesPanel(
-                            data = state.data,
+                            data = state.data.copy(
+                                files = state.data.files.filter { it !in pendingDeleted },
+                            ),
+                            previewRevision = previewRevision,
                             onOpen = { downloadFile = it },
-                            onUpload = pickFiles,
-                            requestUploadFocus = restoreUploadFocus,
-                            onUploadFocusConsumed = { restoreUploadFocus = false },
+                            onPreview = { previewFile = it },
+                            onDelete = deleteFile,
                             pendingFocusFile = restoreFileFocus,
                             onPendingFocusConsumed = { restoreFileFocus = null },
+                            durations = mediaDurations,
+                            loadImage = viewModel::loadPreviewBitmap,
+                            loadDuration = viewModel::loadMediaDuration,
                         )
                     }
                 }
+            }
+        }
+
+        undoDelete?.let { undo ->
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 48.dp, vertical = 28.dp)
+                    .fillMaxWidth(0.62f)
+                    .background(TvSurface, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.file_deleted, undo.name, undo.secondsLeft),
+                    modifier = Modifier.weight(1f),
+                    color = TvTextPrimary,
+                    fontSize = 18.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.width(16.dp))
+                FocusableButton(
+                    label = stringResource(R.string.file_delete_undo),
+                    onClick = { viewModel.undoDeleteFile(undo.name) },
+                    compact = true,
+                    rootModifier = Modifier.focusRequester(undoFocus),
+                )
             }
         }
 
@@ -259,10 +364,26 @@ fun BrowseScreen(
             )
         }
 
+        previewFile?.let { name ->
+            FilePreviewOverlay(
+                name = name,
+                inlineUrl = viewModel.inlineFileUrl(name),
+                previewRevision = previewRevision,
+                stamp = (content as? BrowseContentState.Ready)?.data?.stampOf(name).orEmpty(),
+                requestFocus = downloadFile == null,
+                loadImage = viewModel::loadPreviewBitmap,
+                loadText = viewModel::loadTextPreview,
+                downloadFile = viewModel::downloadPreviewFile,
+                onDownload = { downloadFile = name },
+                onDelete = { deleteFile(name) },
+                onDismiss = closePreview,
+            )
+        }
+
         downloadFile?.let { name ->
             DownloadDialog(
                 fileName = name,
-                downloadUrl = "${current.baseUrl}/files/${Uri.encode(name)}",
+                downloadUrl = viewModel.downloadFileUrl(name),
                 onDownload = { url, fileName ->
                     enqueueDownload(context, url, fileName)
                     dismissDownloadDialog()
@@ -355,22 +476,31 @@ private fun SourceHeader(
     onClick: () -> Unit,
 ) {
     FocusableCard(onClick = onClick, rootModifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(horizontal = 24.dp, vertical = 14.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 text = stringResource(R.string.browse_source),
                 color = TvTextSecondary,
-                fontSize = 16.sp,
+                fontSize = 14.sp,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.width(12.dp))
             Text(
                 text = server.instanceName,
+                modifier = Modifier.weight(1f),
                 color = TvTextPrimary,
-                fontSize = 28.sp,
+                fontSize = 18.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = "${server.host}:${server.port}",
                 color = TvTextSecondary,
-                fontSize = 20.sp,
+                fontSize = 16.sp,
+                maxLines = 1,
             )
         }
     }
@@ -393,6 +523,7 @@ private fun LinesPanel(
             LineItemCard(
                 title = item.title,
                 preview = item.text.replace('\n', ' '),
+                singleLine = true,
                 onClick = { onCopy(item) },
             )
         }
@@ -418,78 +549,6 @@ private fun TextsPanel(
                 preview = item.text.replace('\n', ' '),
                 onClick = { onOpen(item) },
             )
-        }
-    }
-}
-
-@Composable
-private fun ColumnScope.FilesPanel(
-    data: ListResponse,
-    onOpen: (String) -> Unit,
-    onUpload: () -> Unit,
-    requestUploadFocus: Boolean,
-    onUploadFocusConsumed: () -> Unit,
-    pendingFocusFile: String?,
-    onPendingFocusConsumed: () -> Unit,
-) {
-    val uploadFocus = remember { FocusRequester() }
-    val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
-    data.files.forEach { name ->
-        focusRequesters.getOrPut(name) { FocusRequester() }
-    }
-    LaunchedEffect(requestUploadFocus) {
-        if (!requestUploadFocus) return@LaunchedEffect
-        uploadFocus.requestFocus()
-        withFrameNanos { }
-        uploadFocus.requestFocus()
-        onUploadFocusConsumed()
-    }
-    LaunchedEffect(pendingFocusFile) {
-        val name = pendingFocusFile ?: return@LaunchedEffect
-        focusRequesters[name]?.requestFocus()
-        // Dialog removal clears focus in the same frame; restore again after that.
-        withFrameNanos { }
-        focusRequesters[name]?.requestFocus()
-        onPendingFocusConsumed()
-    }
-    Column(Modifier.weight(1f).fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            FocusableButton(
-                label = stringResource(R.string.upload_action),
-                onClick = onUpload,
-                rootModifier = Modifier.focusRequester(uploadFocus),
-            )
-            Spacer(Modifier.width(16.dp))
-            Text(
-                text = stringResource(R.string.upload_hint),
-                color = TvTextSecondary,
-                fontSize = 18.sp,
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        if (data.files.isEmpty()) {
-            SectionEmpty(stringResource(R.string.browse_empty_files))
-        } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 40.dp),
-            ) {
-                items(data.files, key = { it }) { name ->
-                    FocusableCard(
-                        onClick = { onOpen(name) },
-                        rootModifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(focusRequesters.getValue(name)),
-                    ) {
-                        Text(
-                            text = name,
-                            color = TvTextPrimary,
-                            modifier = Modifier.padding(24.dp),
-                        )
-                    }
-                }
-            }
         }
     }
 }

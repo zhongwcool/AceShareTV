@@ -33,6 +33,7 @@ private val FocusGlowPadding = 8.dp
 @Composable
 fun FocusableCard(
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     rootModifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -40,6 +41,7 @@ fun FocusableCard(
     Box(modifier = rootModifier) {
         Surface(
             onClick = onClick,
+            onLongClick = onLongClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = FocusGlowPadding),
@@ -67,6 +69,7 @@ fun FocusableButton(
     label: String,
     onClick: () -> Unit,
     rootModifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     val buttonShape = RoundedCornerShape(8.dp)
     Surface(
@@ -80,16 +83,19 @@ fun FocusableButton(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = BorderStroke(3.dp, TvBorderFocused),
+                border = BorderStroke(if (compact) 2.dp else 3.dp, TvBorderFocused),
                 shape = buttonShape,
             ),
         ),
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
+            modifier = Modifier.padding(
+                horizontal = if (compact) 16.dp else 24.dp,
+                vertical = if (compact) 8.dp else 14.dp,
+            ),
             color = TvTextPrimary,
-            fontSize = 22.sp,
+            fontSize = if (compact) 18.sp else 22.sp,
         )
     }
 }
@@ -136,6 +142,7 @@ fun LineItemCard(
     title: String,
     preview: String,
     onClick: () -> Unit,
+    singleLine: Boolean = false,
     rootModifier: Modifier = Modifier,
 ) {
     FocusableCard(onClick = onClick, rootModifier = rootModifier.fillMaxWidth()) {
@@ -160,7 +167,8 @@ fun LineItemCard(
                     .padding(top = if (title.isNotBlank()) 8.dp else 0.dp),
                 color = TvTextPrimary,
                 fontSize = 22.sp,
-                maxLines = 2,
+                maxLines = if (singleLine) 1 else 2,
+                softWrap = !singleLine,
                 overflow = TextOverflow.Ellipsis,
             )
         }

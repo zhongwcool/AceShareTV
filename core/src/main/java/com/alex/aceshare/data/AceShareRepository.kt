@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.File
 import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
 sealed interface BrowseContentState {
@@ -42,6 +43,23 @@ class AceShareRepository(
         refresh()
         startSse(baseUrl)
         startPolling(baseUrl)
+    }
+
+    suspend fun deleteItem(kind: String, name: String) {
+        val url = baseUrl ?: throw IllegalStateException("未连接服务器")
+        api.deleteItem(url, kind, name)
+    }
+
+    suspend fun readPreviewBytes(url: String, maxBytes: Long): PreviewBytes {
+        return api.readCappedBytes(url, maxBytes)
+    }
+
+    suspend fun downloadPreviewFile(url: String, dest: File, maxBytes: Long): PreviewFileResult {
+        return api.downloadCapped(url, dest, maxBytes)
+    }
+
+    suspend fun probeMedia(url: String, knownSize: Long, targetPx: Int, wantFrame: Boolean): RemoteMedia {
+        return loadRemoteMedia(api.mediaClient, url, knownSize, targetPx, wantFrame)
     }
 
     suspend fun uploadFiles(

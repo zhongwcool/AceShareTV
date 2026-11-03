@@ -13,9 +13,9 @@ android {
         applicationId = "com.alex.aceshare"
         minSdk = 25
         targetSdk = 37
-        val versionCodeBase = (findProperty("VERSION_CODE_BASE") as String?)?.toIntOrNull() ?: 10200
+        val versionCodeBase = (findProperty("VERSION_CODE_BASE") as String?)?.toIntOrNull() ?: 10300
         versionCode = versionCodeBase * 10 + 2
-        versionName = (findProperty("VERSION_NAME") as String?) ?: "1.2.0"
+        versionName = (findProperty("VERSION_NAME") as String?) ?: "1.3.0"
     }
 
     flavorDimensions += "distribution"
@@ -82,6 +82,7 @@ dependencies {
     implementation(libs.androidx.compose.material3.adaptive.navigation)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.compose.material.icons.core)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)

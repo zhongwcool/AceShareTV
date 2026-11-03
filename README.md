@@ -37,7 +37,7 @@ mobile/    手机 / 折叠屏界面（Material 3）
 ## 协议摘要
 
 - 发现：`NsdManager`，serviceType `_aceshare._tcp.`
-- `GET /api/list` → files / lines / texts
+- `GET /api/list` → files / fileMeta / lines / texts。`fileMeta` 带每个文件的字节大小和修改时间（Unix 毫秒）；旧服务端不返回时，客户端不显示大小和时间
 - `GET /api/events` → SSE `change`（失败时 8s 轮询兜底）
 - `GET /files/{name}` → 文件下载
 - `POST /api/upload` → `multipart/form-data` 上传到 `files/`，字段名 `file`（可多选）。重名保存为 `名称_2.扩展名`
