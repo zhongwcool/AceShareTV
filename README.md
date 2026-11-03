@@ -1,16 +1,8 @@
 # AceShare
 
-局域网 AceShare 客户端，连接同一局域网里的 [AceShare](https://github.com/zhongwcool/AceShare) 服务端。`:tv` 是电视界面，`:mobile` 是手机、平板和折叠屏界面。两端共用包名 `com.alex.aceshare`，准备作为同一个 Google Play 应用发布。
+局域网 AceShare 客户端，连接同一局域网里的 [AceShare](https://github.com/zhongwcool/AceShare) 服务端。`:tv` 是电视界面，`:mobile` 是手机、平板和折叠屏界面。
 
-服务端安装包在 [Releases](https://github.com/zhongwcool/AceShare/releases)，按平台下载：
-
-| 平台 | 文件 |
-|------|------|
-| Windows x64 | `aceshare-v*-windows-amd64.exe` |
-| Windows ARM64 | `aceshare-v*-windows-arm64.exe` |
-| macOS Intel | `aceshare-v*-macos-amd64` |
-| macOS Apple 芯片 | `aceshare-v*-macos-arm64` |
-| Linux x64 | `aceshare-v*-linux-amd64` |
+功能运行依赖服务端，当前最新版 [去下载](https://github.com/zhongwcool/AceShare/releases/)。
 
 ## 模块
 
@@ -29,7 +21,6 @@ mobile/    手机 / 折叠屏界面（Material 3）
 | `play` | 上架 Google Play，不含自更新代码和 `REQUEST_INSTALL_PACKAGES` |
 
 `versionCode = VERSION_CODE_BASE * 10 + 设备位`。电视是 1，手机是 2。例如 `1.2.3` 的基数是 `10203`，电视包是 `102031`，手机包是 `102032`。GitHub 版是否有更新改为比较 versionName，不再比较 versionCode。
-
 
 ## 权限
 
