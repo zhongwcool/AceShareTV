@@ -2,7 +2,7 @@
 
 局域网 AceShare 客户端，连接同一局域网里的 [AceShare](https://github.com/zhongwcool/AceShare) 服务端。`:tv` 是电视界面，`:mobile` 是手机、平板和折叠屏界面。
 
-功能运行依赖服务端，当前最新版 [去下载](https://github.com/zhongwcool/AceShare/releases/)。
+>功能运行依赖服务端，当前最新版 [去下载](https://github.com/zhongwcool/AceShare/releases/)。
 
 ## 模块
 
