@@ -20,14 +20,16 @@
 
 可以放 GitHub，要用 **GitHub Pages** 把 `docs/privacy-policy.html` 变成普通网页。不要填仓库里的 blob 链接，也不要填 `raw.githubusercontent.com`：blob 页打不开成政策正文，raw 经常以源码形式显示。PDF、需要登录的链接也不要。
 
-推送包含 `docs/privacy-policy.html` 和 `docs/.nojekyll` 的默认分支之后：
+`docs/privacy-policy.html` 已经在 `main` 上。用 **Deploy from a branch**，只发布 `/docs`，网页上没有源码：
 
 1. 打开仓库 **Settings → Pages**。
-2. **Build and deployment** 选 **Deploy from a branch**。
-3. 分支选默认分支，文件夹选 **`/docs`**，保存。
-4. 等几分钟，用浏览器打开：`https://zhongwcool.github.io/AceShareTV/privacy-policy.html`
-5. 确认不用登录就能看到标题「隐私政策」，开发者名称是 **zhong Alex**。
-6. 把这个网址填进 Play 商店资料的「隐私政策」。以后换域名时，改的是这个字段，应用内正文不用先有网址。
+2. Source 选 **Deploy from a branch**，不要选 GitHub Actions。
+3. Branch 选 **main**，文件夹选 **/docs**，点 **Save**。不要添加 Jekyll 主题。
+4. 等设置页显示网站已发布。
+5. 用无痕窗口打开：`https://zhongwcool.github.io/AceShareTV/privacy-policy.html`
+6. 确认不用登录就能看到标题「隐私政策」，开发者名称是 **zhong Alex**。页面打不开就先不要填。
+7. Play 商店资料的「隐私政策」填这个网址。以后换域名时，只改这个字段。
+8. 免费个人账号把仓库改成私有后，GitHub 会自动下线 Pages，这个网址会打不开，Play 上的链接随之失效。闭源前把 `docs/privacy-policy.html` 留在一个继续公开的小仓库里，或使用允许「私有仓库 + 公开 Pages」的付费方案。设成仅协作者可见的 Pages 不能给 Play 用。
 
 商店资料里的开发者名称必须也是 `zhong Alex`，并与隐私政策一致。付款资料里的法律姓名仍填真实姓名，不要改成 `zhong Alex`。名称修改要等 Google 审核通过后才会出现在商店。
 
