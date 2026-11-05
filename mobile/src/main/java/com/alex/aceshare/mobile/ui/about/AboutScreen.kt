@@ -29,11 +29,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.alex.aceshare.core.R as CoreR
 import com.alex.aceshare.mobile.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutScreen(onBack: () -> Unit) {
+fun AboutScreen(
+    onBack: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+) {
     val context = LocalContext.current
     val version = remember(context) { readAppVersionName(context) }
     val email = stringResource(R.string.developer_email)
@@ -75,6 +79,20 @@ fun AboutScreen(onBack: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Column(
+                Modifier
+                    .padding(top = 12.dp)
+                    .fillMaxWidth()
+                    .clickable(role = Role.Button) { onOpenPrivacy() }
+                    .padding(vertical = 8.dp),
+            ) {
+                Text(
+                    text = stringResource(CoreR.string.privacy_policy),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    textDecoration = TextDecoration.Underline,
+                )
+            }
             Column(
                 Modifier
                     .padding(top = 12.dp)

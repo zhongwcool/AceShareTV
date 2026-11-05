@@ -22,6 +22,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.alex.aceshare.AceShareApp
 import com.alex.aceshare.data.DiscoveredServer
+import com.alex.aceshare.ui.about.PrivacyPolicyScreen
 import com.alex.aceshare.ui.browse.BrowseScreen
 import com.alex.aceshare.ui.browse.BrowseViewModel
 import com.alex.aceshare.ui.discovery.DiscoveryScreen
@@ -31,6 +32,7 @@ import com.alex.aceshare.ui.discovery.UpdateUiState
 
 object Routes {
     const val Discovery = "discovery"
+    const val Privacy = "privacy"
     const val Browse = "browse/{host}/{port}/{name}"
 
     fun browse(server: DiscoveredServer): String {
@@ -71,7 +73,15 @@ fun AceShareNavHost(
                     }
                 },
                 onExitRequest = onExit,
+                onOpenPrivacy = {
+                    navController.navigate(Routes.Privacy) {
+                        launchSingleTop = true
+                    }
+                },
             )
+        }
+        composable(Routes.Privacy) {
+            PrivacyPolicyScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.Browse,

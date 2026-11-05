@@ -1,6 +1,5 @@
 package com.alex.aceshare.ui.discovery
 
-import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,12 +22,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
@@ -37,8 +43,10 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.alex.aceshare.R
+import com.alex.aceshare.core.R as CoreR
 import com.alex.aceshare.data.DiscoveredServer
 import com.alex.aceshare.discovery.LocalNetworkAccess
+import com.alex.aceshare.legal.openServerDownloadPage
 import com.alex.aceshare.ui.components.FocusableButton
 import com.alex.aceshare.ui.components.ServerCard
 import com.alex.aceshare.ui.theme.TvBackground
@@ -51,15 +59,31 @@ fun DiscoveryScreen(
     viewModel: DiscoveryViewModel,
     onServerSelected: (DiscoveredServer) -> Unit,
     onExitRequest: () -> Unit,
+    onOpenPrivacy: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val updateState by viewModel.updateUiState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var localNetworkGranted by remember { mutableStateOf(LocalNetworkAccess.isGranted(context)) }
+    var showLocalNetworkDisclosure by rememberSaveable { mutableStateOf(false) }
+    var localNetworkPrompted by rememberSaveable { mutableStateOf(false) }
     val localNetworkPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
+        localNetworkGranted = granted
         if (granted) viewModel.onLocalNetworkPermissionGranted()
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                localNetworkGranted = LocalNetworkAccess.isGranted(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     DisposableEffect(Unit) {
@@ -68,11 +92,11 @@ fun DiscoveryScreen(
     }
 
     LaunchedEffect(Unit) {
-        val permission = LocalNetworkAccess.permissionToRequest()
-        if (permission != null &&
-            context.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED
-        ) {
-            localNetworkPermission.launch(permission)
+        val needsPermission = LocalNetworkAccess.permissionToRequest() != null &&
+            !LocalNetworkAccess.isGranted(context)
+        if (needsPermission && !localNetworkPrompted) {
+            localNetworkPrompted = true
+            showLocalNetworkDisclosure = true
         }
     }
 
@@ -83,10 +107,10 @@ fun DiscoveryScreen(
     }
 
     BackHandler {
-        when (updateState) {
-            is UpdateUiState.Available,
-            is UpdateUiState.Error,
-            -> viewModel.dismissUpdate()
+        when {
+            showLocalNetworkDisclosure -> showLocalNetworkDisclosure = false
+            updateState is UpdateUiState.Available || updateState is UpdateUiState.Error ->
+                viewModel.dismissUpdate()
             else -> onExitRequest()
         }
     }
@@ -98,13 +122,48 @@ fun DiscoveryScreen(
     ) {
         if (state.servers.isEmpty()) {
             SearchingContent(
-                rootModifier = Modifier.fillMaxSize(),
+                rootModifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 88.dp),
             )
         } else {
             ServerListContent(
                 servers = state.servers,
                 onSelect = { viewModel.selectServer(it) },
-                rootModifier = Modifier.fillMaxSize(),
+                rootModifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 88.dp),
+            )
+        }
+
+        Row(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 48.dp, bottom = 28.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (LocalNetworkAccess.permissionToRequest() != null && !localNetworkGranted) {
+                FocusableButton(
+                    label = stringResource(CoreR.string.local_network_grant),
+                    onClick = { showLocalNetworkDisclosure = true },
+                    compact = true,
+                )
+            }
+            FocusableButton(
+                label = stringResource(CoreR.string.privacy_policy),
+                onClick = onOpenPrivacy,
+                compact = true,
+            )
+        }
+
+        if (showLocalNetworkDisclosure) {
+            LocalNetworkDisclosure(
+                onContinue = {
+                    showLocalNetworkDisclosure = false
+                    LocalNetworkAccess.permissionToRequest()?.let(localNetworkPermission::launch)
+                },
+                onPrivacy = onOpenPrivacy,
+                onLater = { showLocalNetworkDisclosure = false },
             )
         }
 
@@ -167,6 +226,25 @@ private fun SearchingContent(
             text = stringResource(R.string.discovery_hint),
             color = TvTextSecondary,
             fontSize = 20.sp,
+        )
+        Spacer(Modifier.height(20.dp))
+        Text(
+            text = stringResource(CoreR.string.server_download_lead),
+            color = TvTextSecondary,
+            fontSize = 20.sp,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = stringResource(CoreR.string.server_download_url),
+            color = TvTextPrimary,
+            fontSize = 18.sp,
+        )
+        Spacer(Modifier.height(16.dp))
+        val context = LocalContext.current
+        FocusableButton(
+            label = stringResource(CoreR.string.server_download_open),
+            onClick = { context.openServerDownloadPage() },
+            compact = true,
         )
     }
 }
@@ -255,6 +333,54 @@ private fun UpdateErrorDialog(
                         onClick = onDismiss,
                     )
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun LocalNetworkDisclosure(
+    onContinue: () -> Unit,
+    onPrivacy: () -> Unit,
+    onLater: () -> Unit,
+) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(TvBackground.copy(alpha = 0.92f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth(0.72f)
+                .padding(32.dp),
+        ) {
+            Text(
+                text = stringResource(CoreR.string.local_network_disclosure_title),
+                color = TvTextPrimary,
+                fontSize = 32.sp,
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(CoreR.string.local_network_disclosure_body),
+                color = TvTextSecondary,
+                fontSize = 20.sp,
+            )
+            Spacer(Modifier.height(28.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                FocusableButton(
+                    label = stringResource(CoreR.string.local_network_disclosure_continue),
+                    onClick = onContinue,
+                )
+                FocusableButton(
+                    label = stringResource(CoreR.string.privacy_policy),
+                    onClick = onPrivacy,
+                )
+                FocusableButton(
+                    label = stringResource(CoreR.string.local_network_disclosure_later),
+                    onClick = onLater,
+                )
             }
         }
     }

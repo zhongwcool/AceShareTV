@@ -5,4 +5,15 @@
     <string name="upload_too_large">文件过大，单次最多 8GB</string>
     <string name="upload_network">无法连接到服务器</string>
     <string name="upload_failed_generic">上传失败</string>
+    <string name="privacy_policy">隐私政策</string>
+    <string name="privacy_policy_updated">更新日期：%1$s</string>
+    <string name="action_back">返回</string>
+    <string name="local_network_disclosure_title">访问本地网络</string>
+    <string name="local_network_disclosure_body">AceShare 会访问本地网络，以发现并连接你选择的电脑，从而在这台设备和那台电脑之间传输你主动选择的文件和文本。这些数据不会上传给开发者。当前版本不使用这些信息投放广告。</string>
+    <string name="local_network_disclosure_continue">继续</string>
+    <string name="local_network_disclosure_later">暂不</string>
+    <string name="local_network_grant">允许访问本地网络</string>
+    <string name="server_download_lead">电脑端请从这里下载并运行</string>
+    <string name="server_download_open">在浏览器中打开</string>
+    <string name="server_download_url" translatable="false">https://github.com/zhongwcool/AceShare/releases</string>
 </resources>

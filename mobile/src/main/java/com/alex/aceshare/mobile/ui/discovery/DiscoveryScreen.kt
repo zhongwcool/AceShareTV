@@ -3,16 +3,17 @@ package com.alex.aceshare.mobile.ui.discovery
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,26 +44,36 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
+import com.alex.aceshare.core.R as CoreR
 import com.alex.aceshare.data.DiscoveredServer
 import com.alex.aceshare.discovery.LocalNetworkAccess
+import com.alex.aceshare.legal.openServerDownloadPage
 import com.alex.aceshare.mobile.R
 import com.alex.aceshare.mobile.ui.about.readAppVersionName
 import com.alex.aceshare.ui.discovery.DiscoveryViewModel
@@ -79,6 +90,7 @@ fun DiscoveryScreen(
     viewModel: DiscoveryViewModel,
     onServerSelected: (DiscoveredServer) -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenPrivacy: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val updateState by viewModel.updateUiState.collectAsStateWithLifecycle()
@@ -87,10 +99,25 @@ fun DiscoveryScreen(
     )
 
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var localNetworkGranted by remember { mutableStateOf(LocalNetworkAccess.isGranted(context)) }
+    var showLocalNetworkDisclosure by rememberSaveable { mutableStateOf(false) }
+    var localNetworkPrompted by rememberSaveable { mutableStateOf(false) }
     val localNetworkPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
+        localNetworkGranted = granted
         if (granted) viewModel.onLocalNetworkPermissionGranted()
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                localNetworkGranted = LocalNetworkAccess.isGranted(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     DisposableEffect(Unit) {
@@ -99,11 +126,11 @@ fun DiscoveryScreen(
     }
 
     LaunchedEffect(Unit) {
-        val permission = LocalNetworkAccess.permissionToRequest()
-        if (permission != null &&
-            context.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED
-        ) {
-            localNetworkPermission.launch(permission)
+        val needsPermission = LocalNetworkAccess.permissionToRequest() != null &&
+            !LocalNetworkAccess.isGranted(context)
+        if (needsPermission && !localNetworkPrompted) {
+            localNetworkPrompted = true
+            showLocalNetworkDisclosure = true
         }
     }
 
@@ -137,7 +164,27 @@ fun DiscoveryScreen(
                 )
             }
         }
-        AppVersionFooter(onOpenAbout = onOpenAbout, onDark = searching)
+        AppVersionFooter(
+            onOpenAbout = onOpenAbout,
+            onOpenPrivacy = onOpenPrivacy,
+            onRequestLocalNetwork = if (LocalNetworkAccess.permissionToRequest() != null && !localNetworkGranted) {
+                { showLocalNetworkDisclosure = true }
+            } else {
+                null
+            },
+            onDark = searching,
+        )
+    }
+
+    if (showLocalNetworkDisclosure) {
+        LocalNetworkDisclosureDialog(
+            onContinue = {
+                showLocalNetworkDisclosure = false
+                LocalNetworkAccess.permissionToRequest()?.let(localNetworkPermission::launch)
+            },
+            onPrivacy = onOpenPrivacy,
+            onLater = { showLocalNetworkDisclosure = false },
+        )
     }
 
     UpdateDialogs(
@@ -196,7 +243,43 @@ private fun SearchingContent(wide: Boolean) {
                 color = SearchTextSecondary,
                 textAlign = TextAlign.Center,
             )
+            ServerDownloadLink(
+                modifier = Modifier.padding(top = if (wide) 20.dp else 16.dp),
+                linkColor = SearchAccent,
+                bodyColor = SearchTextSecondary,
+                fontSize = hintSize,
+            )
         }
+    }
+}
+
+@Composable
+private fun ServerDownloadLink(
+    modifier: Modifier = Modifier,
+    linkColor: Color,
+    bodyColor: Color,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+) {
+    val context = LocalContext.current
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = stringResource(CoreR.string.server_download_lead),
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize),
+            color = bodyColor,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = stringResource(CoreR.string.server_download_url),
+            modifier = Modifier
+                .padding(top = 6.dp)
+                .clickable(role = Role.Button) { context.openServerDownloadPage() }
+                .padding(vertical = 4.dp),
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = fontSize),
+            color = linkColor,
+            textAlign = TextAlign.Center,
+            textDecoration = TextDecoration.Underline,
+        )
     }
 }
 
@@ -323,34 +406,91 @@ private fun ServerCard(
 @Composable
 private fun AppVersionFooter(
     onOpenAbout: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+    onRequestLocalNetwork: (() -> Unit)?,
     onDark: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val version = remember(context) { readAppVersionName(context) }
-    Row(
+    val actionColor = if (onDark) SearchAccent else Color.Unspecified
+    Column(
         modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = stringResource(R.string.discovery_footer_version, version),
             style = MaterialTheme.typography.bodyMedium,
             color = if (onDark) SearchTextSecondary else MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        TextButton(
-            onClick = onOpenAbout,
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        FlowRow(
+            horizontalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                text = stringResource(R.string.about_developer),
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (onDark) SearchAccent else Color.Unspecified,
-            )
+            if (onRequestLocalNetwork != null) {
+                TextButton(
+                    onClick = onRequestLocalNetwork,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text = stringResource(CoreR.string.local_network_grant),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = actionColor,
+                    )
+                }
+            }
+            TextButton(
+                onClick = onOpenPrivacy,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    text = stringResource(CoreR.string.privacy_policy),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = actionColor,
+                )
+            }
+            TextButton(
+                onClick = onOpenAbout,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.about_developer),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = actionColor,
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun LocalNetworkDisclosureDialog(
+    onContinue: () -> Unit,
+    onPrivacy: () -> Unit,
+    onLater: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onLater,
+        title = { Text(stringResource(CoreR.string.local_network_disclosure_title)) },
+        text = { Text(stringResource(CoreR.string.local_network_disclosure_body)) },
+        confirmButton = {
+            TextButton(onClick = onContinue) {
+                Text(stringResource(CoreR.string.local_network_disclosure_continue))
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onPrivacy) {
+                    Text(stringResource(CoreR.string.privacy_policy))
+                }
+                TextButton(onClick = onLater) {
+                    Text(stringResource(CoreR.string.local_network_disclosure_later))
+                }
+            }
+        },
+    )
 }
 
 @Composable
